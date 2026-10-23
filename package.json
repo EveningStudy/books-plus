@@ -1,6 +1,6 @@
 {
   "name": "icloud-books-reader",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "private": true,
   "description": "Books+ desktop reader with cloud libraries, offline neural narration and desktop subtitles",
   "main": "desktop/main.cjs",
@@ -47,14 +47,14 @@
     "jszip": "^3.10.2",
     "lucide-react": "^1.61.0",
     "marked": "^18.1.1",
-    "node-edge-tts": "^1.2.11",
     "pdfjs-dist": "^6.4.299",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "sanitize-html": "^2.18.1",
     "sherpa-onnx-node": "1.13.8",
     "tar": "^7.5.22",
-    "unbzip2-stream": "^1.4.3"
+    "unbzip2-stream": "^1.4.3",
+    "ws": "^8.22.0"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",

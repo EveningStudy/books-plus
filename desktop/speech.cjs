@@ -179,7 +179,7 @@ class Speech {
           modelId,
           threads,
           quality,
-          v: 4,
+          v: engine === "edge" ? 5 : 4,
         }),
       )
       .digest("hex");
@@ -226,31 +226,29 @@ class Speech {
         lang: selected.lang,
         rate: `${rate >= 1 ? "+" : ""}${Math.round((rate - 1) * 100)}%`,
         pitch: `${pitch >= 0 ? "+" : ""}${pitch}Hz`,
-        saveSubtitles: true,
         timeout: 25000,
       };
       await new Promise((resolve, reject) => {
         const worker = new Worker(path.join(__dirname, "edge-worker.cjs"), {
           workerData: { config, text, file },
         });
-        const timer = setTimeout(() => {
-          worker.terminate();
-          reject(Error("Edge 连接或合成超时，请检查网络或切换系统离线语音"));
-        }, 30000);
-        worker.once("message", (value) => {
+        let finished = false;
+        const finish = (error) => {
+          if (finished) return;
+          finished = true;
           clearTimeout(timer);
-          worker.terminate();
-          value.error ? reject(Error(value.error)) : resolve();
-        });
-        worker.once("error", (error) => {
-          clearTimeout(timer);
-          worker.terminate();
-          reject(error);
-        });
-        worker.once("exit", (code) => {
-          clearTimeout(timer);
-          if (code !== 0) reject(Error("Edge 语音服务已停止"));
-        });
+          worker.terminate().catch(() => {});
+          error ? reject(error) : resolve();
+        };
+        const timer = setTimeout(
+          () => finish(Error("Edge 连接或合成超时，请检查网络后重试")),
+          30000,
+        );
+        worker.once("message", (value) =>
+          finish(value.done ? null : Error(value.error || "Edge 未完成合成")),
+        );
+        worker.once("error", finish);
+        worker.once("exit", () => finish(Error("Edge 语音服务已停止，请重试")));
       });
       const subtitles = await json(file + ".json", []);
       let cursor = 0;

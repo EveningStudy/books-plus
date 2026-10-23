@@ -14,7 +14,8 @@ Books+ authored source is MIT. Dependencies retain their own copyrights and term
 | Lucide             | https://github.com/lucide-icons/lucide                 | ISC                                      |
 | marked             | https://github.com/markedjs/marked                     | MIT                                      |
 | sanitize-html      | https://github.com/apostrophecms/sanitize-html         | MIT                                      |
-| node-edge-tts      | https://github.com/SchneeHertz/node-edge-tts           | MIT                                      |
+| ws                 | https://github.com/websockets/ws                     | MIT                                      |
+| Edge GEC helper    | https://github.com/SchneeHertz/node-edge-tts/blob/master/src/drm.ts | MIT (adapted in `desktop/edge-gec.cjs`; notice in `desktop/licenses/`) |
 | sherpa-onnx 1.13.8 | https://github.com/k2-fsa/sherpa-onnx/tree/v1.13.8     | Apache-2.0 and native component licenses |
 | ONNX Runtime       | https://github.com/microsoft/onnxruntime               | MIT and third-party notices              |
 | espeak-ng          | https://github.com/espeak-ng/espeak-ng                 | GPL-3.0-or-later                         |

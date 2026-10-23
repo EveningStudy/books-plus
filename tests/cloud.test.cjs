@@ -61,7 +61,13 @@ test("library and cover browsing never read book bodies", async (t) => {
   } finally {
     fs.readFile = original;
   }
+  // read() extracts the cover in the background. Finish that job before teardown
+  // removes its output directory, otherwise Windows can report ENOTEMPTY.
+  const extractCover = library.extractCover.bind(library);
+  let coverJob;
+  library.extractCover = (...args) => (coverJob = extractCover(...args));
   const data = await library.read("old");
+  await coverJob;
   assert.equal(data[0], 80);
   library.closed("old");
 });
