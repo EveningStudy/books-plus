@@ -43,4 +43,5 @@ jobs:
         if: failure()
         with:
           name: acceptance-evidence-${{ runner.os }}
+          include-hidden-files: true
           path: .qa/handoff-ui-*/

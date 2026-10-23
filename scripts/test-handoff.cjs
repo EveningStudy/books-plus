@@ -162,7 +162,7 @@ function pdf() {
     await page.getByRole("button", { name: "接着读", exact: true }).click();
     await page.waitForFunction(() =>
       [...document.querySelectorAll("iframe")].some((f) =>
-        f.contentDocument?.body.textContent.includes("CHAPTER_2_HANDOFF"),
+        f.contentDocument?.body?.textContent.includes("CHAPTER_2_HANDOFF"),
       ),
     );
     await page.waitForTimeout(1200);
@@ -203,7 +203,7 @@ function pdf() {
     await card("Handoff Fixture").click();
     await page.waitForFunction(() =>
       [...document.querySelectorAll("iframe")].some((f) =>
-        f.contentDocument?.body.textContent.includes("CHAPTER_3_HANDOFF"),
+        f.contentDocument?.body?.textContent.includes("CHAPTER_3_HANDOFF"),
       ),
     );
     await page.waitForTimeout(1000);
@@ -225,7 +225,8 @@ function pdf() {
       await page.waitForSelector(".epub-container iframe");
       await page.waitForFunction(() =>
         [...document.querySelectorAll("iframe")].some(
-          (f) => (f.contentDocument?.body.textContent || "").trim().length > 10,
+          (f) =>
+            (f.contentDocument?.body?.textContent || "").trim().length > 10,
         ),
       );
       await page.getByRole("button", { name: "图书", exact: true }).click();

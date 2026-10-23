@@ -19,7 +19,7 @@ const assert = require("node:assert/strict");
   const app = await electron.launch({
     executablePath: path.resolve(
       process.env.BOOKSPLUS_TEST_APP ||
-        `release/mac-${process.arch}/Books+.app/Contents/MacOS/Books+`,
+        `release/${process.arch === "arm64" ? "mac-arm64" : "mac"}/Books+.app/Contents/MacOS/Books+`,
     ),
     env: {
       ...process.env,
