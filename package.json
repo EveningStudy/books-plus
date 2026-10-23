@@ -1,6 +1,6 @@
 {
   "name": "icloud-books-reader",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "Books+ desktop reader with cloud libraries, offline neural narration and desktop subtitles",
   "main": "desktop/main.cjs",

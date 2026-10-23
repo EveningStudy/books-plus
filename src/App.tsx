@@ -21,6 +21,7 @@ import type {
   Mark,
   Reading,
   ReadSettings,
+  SyncResult,
   Voice,
 } from "./types";
 import { readingDefaults, subtitleDefaults, voiceDefaults } from "./defaults";
@@ -50,10 +51,26 @@ export default function App() {
   const previewGeneration = useRef(0);
   const activeRef = useRef(active);
   activeRef.current = active;
-  const showError = useCallback((text: string) => setMessage(text), []);
+  const libraryRoot = useRef("");
+  const syncStatus = useRef<{ root: string; text: string } | null>(null);
+  const showError = useCallback((error: unknown) => {
+    setMessage(error instanceof Error ? error.message : String(error));
+  }, []);
+  const reportSync = useCallback((result: SyncResult) => {
+    const text = result.synced
+      ? "进度已写入云盘文件夹"
+      : result.error || "进度已在本机保存 · 等待同步";
+    syncStatus.current = { root: libraryRoot.current, text };
+    setSync(text);
+  }, []);
   const applyData = useCallback((value: LibraryData) => {
+    libraryRoot.current = value.root;
     setData(value);
-    setSync(value.syncError || `已读取 ${value.books.length} 本图书`);
+    setSync(
+      value.syncError ||
+        (syncStatus.current?.root === value.root && syncStatus.current.text) ||
+        `已读取 ${value.books.length} 本图书`,
+    );
   }, []);
   const refresh = useCallback(async () => {
     if (!window.reader) return;
@@ -133,11 +150,7 @@ export default function App() {
           .then((v) => setVoices(v.voices))
           .catch(() => {});
     });
-    const offSync = window.reader.onSync((result) =>
-      setSync(
-        result.synced ? "进度已写入云盘文件夹" : result.error || "等待同步",
-      ),
-    );
+    const offSync = window.reader.onSync(reportSync);
     const offClosing = window.reader.onClosing(() => {
       if (!activeRef.current) window.reader?.finishClose();
     });
@@ -149,7 +162,7 @@ export default function App() {
       offClosing();
       preview.current?.pause();
     };
-  }, [applyData, choose]);
+  }, [applyData, choose, reportSync]);
   const changeSettings = useCallback((patch: Partial<AppSettings>) => {
     const value = { ...settingsRef.current, ...patch };
     settingsRef.current = value;
@@ -205,12 +218,9 @@ export default function App() {
           : null,
       );
       const result = await window.reader!.save(id, patch);
-      setSync(
-        result.synced ? "进度已写入云盘文件夹" : "进度已在本机保存 · 等待同步",
-      );
-      if (!result.synced && result.error) setMessage(result.error);
+      reportSync(result);
     },
-    [],
+    [reportSync],
   );
   const onStatus = useCallback(
     (id: string, status: BookState["status"]) => {

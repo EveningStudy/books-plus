@@ -176,9 +176,12 @@ export function Reader({
   );
   const turnRef = useRef(pageTurn);
   turnRef.current = pageTurn;
-  const turnPage = useCallback((direction: number) => {
-    turnRef.current.turn(direction);
-  }, []);
+  const turnPage = useCallback(
+    (direction: number) => {
+      turnRef.current.turn(direction).catch((error) => onError(String(error)));
+    },
+    [onError],
+  );
   useEffect(() => {
     let cancelled = false;
     window.reader
@@ -312,7 +315,7 @@ export function Reader({
     href?: string;
     page?: number;
   }) => {
-    pageTurn.cancel();
+    await pageTurn.cancel();
     narration.stop();
     savedNarration.current = undefined;
     try {
@@ -320,6 +323,12 @@ export function Reader({
     } catch (e) {
       onError(`此位置无法定位：${String(e)}`);
     }
+  };
+  const seek = async (progress: number) => {
+    await pageTurn.cancel();
+    narration.stop();
+    savedNarration.current = undefined;
+    await engine.current?.seek(progress);
   };
   const addBookmark = () => {
     const cfi = locationRef.current.cfi;
@@ -677,19 +686,11 @@ export function Reader({
             }))
           }
           onPointerUp={(e) => {
-            narration.stop();
-            savedNarration.current = undefined;
-            engine.current
-              ?.seek(Number(e.currentTarget.value) / 1000)
-              .catch(onError);
+            seek(Number(e.currentTarget.value) / 1000).catch(onError);
           }}
           onKeyUp={(e) => {
             if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) {
-              narration.stop();
-              savedNarration.current = undefined;
-              engine.current
-                ?.seek(Number(e.currentTarget.value) / 1000)
-                .catch(onError);
+              seek(Number(e.currentTarget.value) / 1000).catch(onError);
             }
           }}
         />

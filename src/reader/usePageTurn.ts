@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import type { ReadSettings } from "../types";
 import { themes } from "../defaults";
 import { createCurlTexture } from "./curlTexture";
+import { createTurnQueue } from "./turnQueue";
 
 const frame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
 function load(url: string) {
@@ -179,116 +180,116 @@ export function usePageTurn(
 ) {
   const latest = useRef({ settings, move });
   latest.current = { settings, move };
-  const active = useRef<{
-    canvas: HTMLCanvasElement;
-    cancelled: boolean;
-  } | null>(null);
-  const busy = useRef(false);
-  const sequence = useRef(0);
-  const cancel = () => {
-    sequence.current++;
-    if (active.current) {
-      active.current.cancelled = true;
-      active.current.canvas.remove();
-      active.current = null;
-    }
-  };
-  useEffect(() => cancel, []);
-  const turn = async (direction: number) => {
-    if (busy.current) return;
-    const { settings: s, move } = latest.current;
-    const element = document.querySelector(".reading-canvas");
-    if (
-      s.scroll ||
-      s.pageTurn === "none" ||
-      matchMedia("(prefers-reduced-motion: reduce)").matches ||
-      !window.reader ||
-      !element
-    ) {
-      await move(direction);
-      return;
-    }
-    busy.current = true;
-    const token = sequence.current;
-    let operation: typeof active.current = null,
-      moved = false,
-      mesh: ReturnType<typeof createCurlTexture> = null;
-    try {
-      const rect = element.getBoundingClientRect(),
-        bounds = {
-          x: rect.x,
-          y: rect.y,
-          width: rect.width,
-          height: rect.height,
-        };
-      const before = await load(await window.reader.capture(bounds));
-      if (token !== sequence.current) return;
-      const canvas = document.createElement("canvas");
-      canvas.width = before.width;
-      canvas.height = before.height;
-      canvas.className = "page-turn-canvas";
-      canvas.dataset.mode = s.pageTurn;
-      Object.assign(canvas.style, {
-        left: rect.x + "px",
-        top: rect.y + "px",
-        width: rect.width + "px",
-        height: rect.height + "px",
-      });
-      const ctx = canvas.getContext("2d")!;
-      ctx.drawImage(before, 0, 0);
-      document.body.appendChild(canvas);
-      operation = { canvas, cancelled: false };
-      active.current = operation;
-      moved = true;
-      await move(direction);
-      await frame();
-      await frame();
-      if (operation.cancelled) return;
-      // Reveal the live, already-rendered next page beneath the old page.
-      // Never hide the overlay for a second screenshot: that exposes a flash.
-      canvas.dataset.phase = "animating";
-      const previous = texture(before, direction < 0),
-        w = canvas.width,
-        h = canvas.height;
-      if (s.pageTurn === "curl") mesh = createCurlTexture(previous);
-      const spread = s.spread && rect.width - 88 >= 900;
-      const started = performance.now(),
-        duration = Math.max(250, Math.min(1000, s.turnDuration || 550));
-      await new Promise<void>((resolve) => {
-        const draw = (now: number) => {
-          if (operation!.cancelled) {
+  const queue = useRef<ReturnType<typeof createTurnQueue> | null>(null);
+  if (!queue.current)
+    queue.current = createTurnQueue(async (direction, operation) => {
+      const { settings: s, move } = latest.current;
+      const element = document.querySelector(".reading-canvas");
+      if (
+        !operation.animate ||
+        s.scroll ||
+        s.pageTurn === "none" ||
+        matchMedia("(prefers-reduced-motion: reduce)").matches ||
+        !window.reader ||
+        !element
+      ) {
+        if (!operation.cancelled) await move(direction);
+        return;
+      }
+      let canvas: HTMLCanvasElement | undefined,
+        mesh: ReturnType<typeof createCurlTexture> = null;
+      try {
+        const rect = element.getBoundingClientRect(),
+          bounds = {
+            x: rect.x,
+            y: rect.y,
+            width: rect.width,
+            height: rect.height,
+          };
+        let before: HTMLImageElement;
+        try {
+          before = await load(await window.reader.capture(bounds));
+        } catch {
+          if (!operation.cancelled) await move(direction);
+          return;
+        }
+        if (operation.cancelled) return;
+        if (operation.interrupted) {
+          await move(direction);
+          return;
+        }
+        canvas = document.createElement("canvas");
+        canvas.width = before.width;
+        canvas.height = before.height;
+        canvas.className = "page-turn-canvas";
+        canvas.dataset.mode = s.pageTurn;
+        Object.assign(canvas.style, {
+          left: rect.x + "px",
+          top: rect.y + "px",
+          width: rect.width + "px",
+          height: rect.height + "px",
+        });
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(before, 0, 0);
+        document.body.appendChild(canvas);
+        await move(direction);
+        if (operation.interrupted) return;
+        await frame();
+        await frame();
+        if (operation.interrupted) return;
+        // Reveal the live, already-rendered next page beneath the old page.
+        // Never hide the overlay for a second screenshot: that exposes a flash.
+        canvas.dataset.phase = "animating";
+        const previous = texture(before, direction < 0),
+          w = canvas.width,
+          h = canvas.height;
+        if (s.pageTurn === "curl") mesh = createCurlTexture(previous);
+        const spread = s.spread && rect.width - 88 >= 900;
+        const started = performance.now(),
+          duration = Math.max(250, Math.min(1000, s.turnDuration || 550));
+        await new Promise<void>((resolve) => {
+          let animationFrame = 0;
+          operation.onInterrupt = () => {
+            cancelAnimationFrame(animationFrame);
             resolve();
-            return;
-          }
-          const raw = Math.min(1, (now - started) / duration),
-            p = raw * raw * (3 - 2 * raw);
-          ctx.save();
-          ctx.clearRect(0, 0, w, h);
-          if (direction < 0) {
-            ctx.translate(w, 0);
-            ctx.scale(-1, 1);
-          }
-          if (s.pageTurn === "curl")
-            curl(ctx, previous, p, spread, themes[s.theme].bg, mesh);
-          else if (s.pageTurn === "slide") ctx.drawImage(previous, -p * w, 0);
-          else {
-            ctx.globalAlpha = 1 - p;
-            ctx.drawImage(previous, 0, 0);
-          }
-          ctx.restore();
-          if (raw < 1) requestAnimationFrame(draw);
-          else resolve();
-        };
-        requestAnimationFrame(draw);
-      });
-    } catch {
-      if (!moved) await move(direction);
-    } finally {
-      mesh?.dispose();
-      operation?.canvas.remove();
-      if (active.current === operation) active.current = null;
-      busy.current = false;
-    }
-  };
-  return { turn, cancel };
+          };
+          const draw = (now: number) => {
+            if (operation.interrupted) {
+              resolve();
+              return;
+            }
+            const raw = Math.min(1, (now - started) / duration),
+              p = raw * raw * (3 - 2 * raw);
+            ctx.save();
+            ctx.clearRect(0, 0, w, h);
+            if (direction < 0) {
+              ctx.translate(w, 0);
+              ctx.scale(-1, 1);
+            }
+            if (s.pageTurn === "curl")
+              curl(ctx, previous, p, spread, themes[s.theme].bg, mesh);
+            else if (s.pageTurn === "slide") ctx.drawImage(previous, -p * w, 0);
+            else {
+              ctx.globalAlpha = 1 - p;
+              ctx.drawImage(previous, 0, 0);
+            }
+            ctx.restore();
+            if (raw < 1) animationFrame = requestAnimationFrame(draw);
+            else resolve();
+          };
+          animationFrame = requestAnimationFrame(draw);
+        });
+      } finally {
+        operation.onInterrupt = undefined;
+        mesh?.dispose();
+        canvas?.remove();
+      }
+    });
+  useEffect(
+    () => () => {
+      void queue.current!.cancel();
+    },
+    [],
+  );
+  return queue.current;
 }
