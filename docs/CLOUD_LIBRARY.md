@@ -116,3 +116,5 @@ Books+.app 包含常驻 FSEvents helper、登录项、菜单栏和三种运行�
 建议把 `catalog.json`、`catalog/`、`reader-state/` 和旧库 `records/` 设为始终保留本机。两端首次连接前等待同步完成；不要分别初始化不同 libraryId 后依靠文件夹名称合库。暂停客户端时仍可保存本机，实际接力需等待客户端恢复。不要同步 Books+ 的 `userData`，否则会复制设备 UUID，破坏单写者规则。
 
 0.4.0 阅读器每 5 秒、打开书前、返回书库和聚焦时读取到达本地的新状态，替代旧版每分钟检查。阅读中更新显示「接着读」，不替换正文或强制跳页。
+
+本轮在真实 OneDrive/Google Drive 本地目录验证了书库读写、进度往返与墓碑；iCloud 实测了上传状态、移除本机下载和 SHA 一致的重新读取。没有验证第二台电脑的公网到达。第三方 File Provider 也可能报告 `isUbiquitousItem`，不能据此启用 iCloud 驱逐接口；当前只对 iCloud Drive 命名空间启用。

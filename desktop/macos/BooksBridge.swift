@@ -139,7 +139,11 @@ func cloudStatus(_ url: URL) throws -> [String: Any] {
     var info = stat()
     guard lstat(url.path, &info) == 0 else { throw NSError(domain: "File unavailable", code: 13) }
     let isCloud = info.st_flags & 0x40000000 != 0 || v.ubiquitousItemDownloadingStatus == .notDownloaded
-    let ubiquitous = v.isUbiquitousItem == true
+    // Third-party File Providers can also report isUbiquitousItem. Only the
+    // iCloud Drive namespace is eligible for Foundation's iCloud eviction API.
+    let drive = home.appendingPathComponent("Library/Mobile Documents/com~apple~CloudDocs").resolvingSymlinksInPath().path
+    let resolved = url.resolvingSymlinksInPath().path
+    let ubiquitous = v.isUbiquitousItem == true && resolved.hasPrefix(drive + "/")
     let synced = ubiquitous && v.ubiquitousItemIsUploaded == true && v.ubiquitousItemIsUploading != true && v.ubiquitousItemHasUnresolvedConflicts != true
     return ["state": isCloud ? "cloud" : ubiquitous ? "downloaded" : "local", "supported": ubiquitous, "bytes": v.fileSize ?? 0, "synced": synced, "pinned": false]
 }

@@ -20,6 +20,13 @@
 
 `npm test`：**58 项通过**。`npm run test:desktop` 为可重复的合成书用户流程；`npm run test:mac` 为打包应用的 Mac 生命周期/后台/媒体验收。CI 在 Windows 与 macOS 分别运行测试、真实 Electron 用户流程并构建平台安装包，结果见仓库 Actions。
 
+### 真实云盘目录补测
+
+- iCloud Drive：新建合成文件，系统报告已上传，Foundation 移除本机下载后变为云端占位；重新读取后 SHA-256 一致。测试文件已按哈希核对后清理，没有驱逐个人原件。
+- OneDrive、Google Drive：在本机已登录客户端的真实同步目录中新建隔离书库，验证导入、正文读取/转换、独立设备进度往返、书签墓碑、原子写入和清理。未将同机两份设备配置称为跨机器服务器传输。
+- 实测发现 OneDrive 也可能报告 `isUbiquitousItem`；现已把 iCloud 释放能力限定在 iCloud Drive 命名空间，避免误判。第三方提供程序的释放请求被拒绝且保留原文。
+- `npm run test:providers` 可重跑 OneDrive/Google Drive 的目录验收；它只在已配置的 Mac 客户端目录写入并清理合成测试书，不修改已有书库，也不自动登录云盘。
+
 ## 本轮修复
 
 1. 阅读中远端更新不可见、打开书使用旧快照。
