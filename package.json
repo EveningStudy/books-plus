@@ -1,0 +1,82 @@
+{
+  "name": "icloud-books-reader",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Books+ desktop reader with cloud libraries, offline neural narration and desktop subtitles",
+  "main": "desktop/main.cjs",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:web": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build",
+    "start": "electron .",
+    "test": "node --test tests/*.test.cjs",
+    "package:win": "npm run build && electron-builder --win portable --x64",
+    "package:mac": "npm run build && electron-builder --mac dir"
+  },
+  "build": {
+    "appId": "study.evening.reader",
+    "productName": "Books+",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "desktop/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "win": {
+      "target": "portable",
+      "artifactName": "BooksPlus-${version}-${arch}.${ext}",
+      "icon": "desktop/icon.png",
+      "signExecutable": "false"
+    },
+    "mac": {
+      "category": "public.app-category.books",
+      "target": "dir"
+    },
+    "electronDist": "node_modules/electron/dist",
+    "asarUnpack": [
+      "node_modules/sherpa-onnx*/**/*"
+    ]
+  },
+  "dependencies": {
+    "@xmldom/xmldom": "^0.9.12",
+    "epubjs": "^0.3.93",
+    "fast-xml-parser": "^5.11.2",
+    "jszip": "^3.10.2",
+    "lucide-react": "^1.61.0",
+    "marked": "^18.1.1",
+    "node-edge-tts": "^1.2.11",
+    "pdfjs-dist": "^6.4.299",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "sanitize-html": "^2.18.1",
+    "sherpa-onnx-node": "1.13.8",
+    "tar": "^7.5.22",
+    "unbzip2-stream": "^1.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "electron": "^45.0.0",
+    "electron-builder": "^26.15.3",
+    "playwright": "^1.64.1",
+    "prettier": "^3.9.10",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5"
+  },
+  "overrides": {
+    "@xmldom/xmldom": "^0.9.12"
+  },
+  "type": "module",
+  "author": "EveningStudy",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/EveningStudy/books-plus.git"
+  },
+  "homepage": "https://github.com/EveningStudy/books-plus"
+}

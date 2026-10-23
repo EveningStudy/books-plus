@@ -1,0 +1,33 @@
+# Third-party components
+
+Books+ authored source is MIT. Dependencies retain their own copyrights and terms; `package-lock.json` records exact npm versions. Electron includes Chromium, Node.js and third-party notices in its distribution.
+
+| Component          | Upstream                                               | License                                  |
+| ------------------ | ------------------------------------------------------ | ---------------------------------------- |
+| Electron           | https://github.com/electron/electron                   | MIT and bundled notices                  |
+| React              | https://github.com/facebook/react                      | MIT                                      |
+| epub.js            | https://github.com/futurepress/epub.js                 | BSD-2-Clause                             |
+| PDF.js             | https://github.com/mozilla/pdf.js                      | Apache-2.0                               |
+| JSZip              | https://github.com/Stuk/jszip                          | MIT or GPL; used under MIT               |
+| fast-xml-parser    | https://github.com/NaturalIntelligence/fast-xml-parser | MIT                                      |
+| xmldom             | https://github.com/xmldom/xmldom                       | MIT                                      |
+| Lucide             | https://github.com/lucide-icons/lucide                 | ISC                                      |
+| marked             | https://github.com/markedjs/marked                     | MIT                                      |
+| sanitize-html      | https://github.com/apostrophecms/sanitize-html         | MIT                                      |
+| node-edge-tts      | https://github.com/SchneeHertz/node-edge-tts           | MIT                                      |
+| sherpa-onnx 1.13.8 | https://github.com/k2-fsa/sherpa-onnx/tree/v1.13.8     | Apache-2.0 and native component licenses |
+| ONNX Runtime       | https://github.com/microsoft/onnxruntime               | MIT and third-party notices              |
+| espeak-ng          | https://github.com/espeak-ng/espeak-ng                 | GPL-3.0-or-later                         |
+| node-tar           | https://github.com/isaacs/node-tar                     | ISC                                      |
+| unbzip2-stream     | https://github.com/regular/unbzip2-stream              | MIT                                      |
+
+Native license texts are retained under `desktop/licenses/` and packaged with the app. Upstream native sources and build instructions are at the linked repositories. Applicable GPL components retain their own terms and source-distribution requirements. The MIT license covers authored Books+ code, not all combined binaries.
+
+Models download separately from curated sherpa-onnx release assets, with pinned SHA-256, and retain upstream license files. They are not committed or bundled:
+
+- Kokoro: [Apache-2.0](https://huggingface.co/hexgrad/Kokoro-82M/blob/main/LICENSE), [runtime instructions](https://k2-fsa.github.io/sherpa/onnx/tts/pretrained_models/kokoro.html).
+- Piper Lessac: [model card and dataset license](https://huggingface.co/rhasspy/piper-voices/blob/main/en/en_US/lessac/medium/MODEL_CARD); do not assume the model has the runtime license.
+- Calibre is installed separately, invoked through `ebook-convert`, and not bundled. See [Calibre source](https://github.com/kovidgoyal/calibre).
+- Microsoft voices and services follow their own terms; Edge access uses a third-party client.
+
+Books+ is independent of Apple and Microsoft. No Apple fonts, purchased books, user annotations or personal cloud data are redistributed.

@@ -1,0 +1,46 @@
+const { contextBridge, ipcRenderer } = require("electron");
+const on = (name, fn) => {
+  const listener = (_, data) => fn(data);
+  ipcRenderer.on(name, listener);
+  return () => ipcRenderer.removeListener(name, listener);
+};
+contextBridge.exposeInMainWorld("reader", {
+  load: () => ipcRenderer.invoke("library:load"),
+  choose: () => ipcRenderer.invoke("library:choose"),
+  importBooks: () => ipcRenderer.invoke("library:import"),
+  formats: () => ipcRenderer.invoke("formats:info"),
+  pickConverter: () => ipcRenderer.invoke("formats:pick"),
+  downloadConverter: () => ipcRenderer.invoke("formats:download"),
+  read: (id) => ipcRenderer.invoke("book:read", id),
+  closeBook: (id) => ipcRenderer.invoke("book:closed", id),
+  offline: (id, keep) => ipcRenderer.invoke("book:offline", id, keep),
+  release: (id) => ipcRenderer.invoke("book:release", id),
+  sweep: () => ipcRenderer.invoke("storage:sweep"),
+  models: () => ipcRenderer.invoke("models:list"),
+  installModel: (id) => ipcRenderer.invoke("models:install", id),
+  cancelModel: (id) => ipcRenderer.invoke("models:cancel", id),
+  removeModel: (id) => ipcRenderer.invoke("models:remove", id),
+  openModelPage: (id, kind) => ipcRenderer.invoke("models:page", id, kind),
+  onModelProgress: (fn) => on("models:progress", fn),
+  capture: (rect) => ipcRenderer.invoke("reader:capture", rect),
+  cover: (id) => ipcRenderer.invoke("book:cover", id),
+  save: (id, patch) => ipcRenderer.invoke("book:save", id, patch),
+  saveSettings: (patch) => ipcRenderer.invoke("settings:save", patch),
+  voices: () => ipcRenderer.invoke("speech:voices"),
+  synthesize: (request) => ipcRenderer.invoke("speech:generate", request),
+  pick: (kind) => ipcRenderer.invoke("speech:pick", kind),
+  showOverlay: (show) => ipcRenderer.invoke("overlay:show", show),
+  publish: (state) => ipcRenderer.invoke("overlay:publish", state),
+  overlayState: () => ipcRenderer.invoke("overlay:get"),
+  lockOverlay: (locked) => ipcRenderer.invoke("overlay:lock", locked),
+  control: (command) => ipcRenderer.invoke("overlay:control", command),
+  fullscreen: () => ipcRenderer.invoke("window:fullscreen"),
+  finishClose: () => ipcRenderer.invoke("window:finish-close"),
+  onClosing: (fn) => on("app:flush", fn),
+  onOverlay: (fn) => on("overlay:update", fn),
+  onLock: (fn) => on("overlay:locked", fn),
+  onOverlayVisibility: (fn) => on("overlay:visibility", fn),
+  onControl: (fn) => on("speech:control", fn),
+  onChoose: (fn) => on("app:choose", fn),
+  onSync: (fn) => on("sync:status", fn),
+});
