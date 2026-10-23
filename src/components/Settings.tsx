@@ -58,12 +58,20 @@ export function Settings({
       onError(String(e));
     }
   };
-  const engineVoices = voices.filter(
-    (v) =>
-      v.engine === voice.engine &&
-      (v.engine !== "neural" || v.modelId === voice.modelId),
-  );
   const [models, setModels] = useState<import("../types").ModelInfo[]>([]);
+  const selectedModel = models.find((m) => m.id === voice.modelId);
+  const engineVoices =
+    voice.engine === "neural" && selectedModel
+      ? selectedModel.voices.map(([id, name, lang]) => ({
+          id: String(id),
+          name,
+          lang,
+        }))
+      : voices.filter(
+          (v) =>
+            v.engine === voice.engine &&
+            (v.engine !== "neural" || v.modelId === voice.modelId),
+        );
   useEffect(() => {
     const refresh = () =>
       window.reader
@@ -187,9 +195,9 @@ export function Settings({
             <h3>朗读声音</h3>
             <div className="engine-tabs">
               {[
-                ["native", "系统离线"],
+                ["edge", "Edge · 首选"],
                 ["neural", "神经离线"],
-                ["edge", "Edge 在线"],
+                ["native", "系统离线"],
                 ["piper", "Piper 本地"],
               ].map(([id, label]) => (
                 <button
@@ -210,7 +218,10 @@ export function Settings({
                       );
                     updateVoice({
                       engine: id as VoiceSettings["engine"],
-                      voice: first?.id || "",
+                      voice:
+                        id === "neural"
+                          ? String(selectedModel?.defaultVoice ?? 0)
+                          : first?.id || "",
                     });
                   }}
                 >
@@ -222,7 +233,7 @@ export function Settings({
               {voice.engine === "native"
                 ? "使用已安装的系统语音，无需网络或独立模型。Windows 的系统语音音高由音色决定。"
                 : voice.engine === "neural"
-                  ? "在本机使用 CPU 神经语音模型。下载 Kokoro 可选中英音色；轻量模型适合节省 CPU。不同模型不代表同等音质，请试听选择。"
+                  ? "中文和中英混读选 ZipVoice；英文可试听 Pocket TTS 或轻量的 Kitten Mini。全部使用 CPU，无需显卡。请按听感选择。"
                   : voice.engine === "edge"
                     ? "使用 Edge 在线语音。朗读文本会发送到微软服务，需要网络；该接口可能因服务变动而不可用。"
                     : "使用 Piper 的 CPU 语音模型。选择已有的 Piper 程序、ONNX 模型及同目录下的模型配置，无需显卡。逐句同步字幕。"}
@@ -250,6 +261,24 @@ export function Settings({
                     ))}
                   </select>
                 </label>
+                {selectedModel?.qualitySteps ? (
+                  <label className="setting-row">
+                    <span>合成质量</span>
+                    <select
+                      aria-label="合成质量"
+                      value={voice.quality}
+                      onChange={(e) =>
+                        updateVoice({
+                          quality: e.target.value as VoiceSettings["quality"],
+                        })
+                      }
+                    >
+                      <option value="fast">快速 · 减少等待</option>
+                      <option value="balanced">均衡</option>
+                      <option value="high">细致 · 等待更久</option>
+                    </select>
+                  </label>
+                ) : null}
                 <label className="setting-row">
                   <span>性能偏好</span>
                   <select
@@ -316,6 +345,10 @@ export function Settings({
               suffix="×"
               onChange={(rate) => updateVoice({ rate })}
             />
+            {voice.engine === "neural" &&
+            ["pocket-en", "zipvoice-distill"].includes(voice.modelId) ? (
+              <p className="help">此模型的语速通过保持音调的播放变速调整。</p>
+            ) : null}
             <Range
               label="音高"
               min={-50}
@@ -368,7 +401,7 @@ export function Settings({
               试听声音
             </button>
             <p className="help">
-              系统与 Edge 可按返回的词时间点高亮字幕。Piper 和 macOS
+              系统与 Edge 可按返回的词时间点高亮字幕。本地模型和 macOS
               系统语音按实际音频逐句切换。
             </p>
             <ModelManager

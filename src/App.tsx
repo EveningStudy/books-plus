@@ -27,6 +27,7 @@ import type {
 import { readingDefaults, subtitleDefaults, voiceDefaults } from "./defaults";
 import { Library } from "./components/Library";
 import { Settings } from "./components/Settings";
+import { migrateVoicePreferences } from "./speech/voicePreferences";
 import { IconButton } from "./components/Primitives";
 const Reader = lazy(() =>
   import("./components/Reader").then((module) => ({ default: module.Reader })),
@@ -130,15 +131,18 @@ export default function App() {
         const found =
           voicesResult.status === "fulfilled" ? voicesResult.value.voices : [];
         setVoices(found);
-        const native =
-          found.find((v) => v.engine === "native" && v.lang.startsWith("zh")) ||
-          found.find((v) => v.engine === "native");
+        const voice = migrateVoicePreferences(voiceDefaults, loaded.voice);
         setSettings({
           ...loaded,
           reading: { ...readingDefaults, ...loaded.reading },
-          voice: { ...voiceDefaults, voice: native?.id || "", ...loaded.voice },
+          voice,
           subtitles: { ...subtitleDefaults, ...loaded.subtitles },
         });
+        if (
+          library.status === "fulfilled" &&
+          (loaded.voice?.presetVersion ?? 0) < 2
+        )
+          window.reader?.saveSettings({ voice }).catch(showError);
         setBusy(false);
       },
     );
@@ -310,6 +314,8 @@ export default function App() {
       });
       if (token !== previewGeneration.current) return;
       const player = (preview.current = new Audio(result.url));
+      player.preservesPitch = true;
+      player.playbackRate = result.playbackRate ?? 1;
       player.volume = voice.volume;
       player.onended = () => setPreviewing(false);
       player.onerror = () => {

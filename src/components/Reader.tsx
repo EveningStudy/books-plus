@@ -700,7 +700,12 @@ export function Reader({
         <button className="voice-selector" onClick={() => onSettings("voice")}>
           <Headphones size={16} />
           <span>
-            {voices.find((v) => v.id === voice.voice)?.name ||
+            {voices.find(
+              (v) =>
+                v.id === voice.voice &&
+                v.engine === voice.engine &&
+                (v.engine !== "neural" || v.modelId === voice.modelId),
+            )?.name ||
               (voice.engine === "piper" ? "Piper 本地语音" : "选择朗读声音")}
           </span>
           <Settings2 size={14} />

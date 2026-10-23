@@ -67,6 +67,8 @@ export function useNarration(options: {
       cues.current = result.cues || [];
       setTiming(result.timing);
       audio.src = result.url;
+      audio.preservesPitch = true;
+      audio.playbackRate = result.playbackRate ?? 1;
       audio.volume = settings.volume;
       if (settings.follow) await latest.current.engine()?.follow(target);
       if (token !== generation.current) return;
@@ -199,6 +201,9 @@ export function useNarration(options: {
     options.settings.voice,
     options.settings.rate,
     options.settings.pitch,
+    options.settings.modelId,
+    options.settings.quality,
+    options.settings.threads,
   ]);
   useEffect(() => {
     deadline.current =

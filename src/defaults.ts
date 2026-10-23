@@ -19,8 +19,8 @@ export const readingDefaults: ReadSettings = {
   turnDuration: 550,
 };
 export const voiceDefaults: VoiceSettings = {
-  engine: "native",
-  voice: "",
+  engine: "edge",
+  voice: "zh-CN-XiaoxiaoNeural",
   rate: 1,
   pitch: 0,
   volume: 0.8,
@@ -28,8 +28,10 @@ export const voiceDefaults: VoiceSettings = {
   piperPath: "",
   modelPath: "",
   follow: true,
-  modelId: "kokoro-int8",
+  modelId: "zipvoice-distill",
   threads: 2,
+  quality: "balanced",
+  presetVersion: 2,
 };
 export const subtitleDefaults: SubtitleSettings = {
   size: 30,

@@ -121,8 +121,8 @@ class Speech {
     }
     return {
       voices: [
-        ...native,
         ...EDGE_VOICES,
+        ...native,
         ...(this.models
           ? (await this.models.list())
               .filter((m) => m.installed)
@@ -152,6 +152,7 @@ class Speech {
       modelPath,
       modelId,
       threads,
+      quality = "balanced",
     } = request;
     if (typeof text !== "string" || !text.trim() || text.length > 1800)
       throw Error("朗读文本为空或超过长度限制");
@@ -177,14 +178,18 @@ class Speech {
           modelPath,
           modelId,
           threads,
-          v: 3,
+          quality,
+          v: 4,
         }),
       )
       .digest("hex");
     if (this.pending.has(hash)) return this.pending.get(hash);
-    const work = this.render(hash, request).finally(() =>
-      this.pending.delete(hash),
-    );
+    const work = this.render(hash, {
+      ...request,
+      rate,
+      pitch,
+      quality,
+    }).finally(() => this.pending.delete(hash));
     this.pending.set(hash, work);
     return work;
   }
@@ -200,6 +205,7 @@ class Speech {
       modelPath,
       modelId,
       threads,
+      quality,
     },
   ) {
     await fs.mkdir(this.cacheDir, { recursive: true });
@@ -270,6 +276,7 @@ class Speech {
         text,
         rate,
         threads,
+        quality,
         file,
       });
     } else if (engine === "native" && process.platform === "win32") {

@@ -2,7 +2,135 @@ const base =
   "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/";
 const MODELS = [
   {
+    id: "zipvoice-distill",
+    name: "ZipVoice · 中英双语",
+    description:
+      "中文本地首选，支持中英混读与两种新闻女声。CPU 推理；可选快速、均衡或细致合成。",
+    size: 109162785,
+    archive: "sherpa-onnx-zipvoice-distill-int8-zh-en-emilia.tar.bz2",
+    folder: "sherpa-onnx-zipvoice-distill-int8-zh-en-emilia",
+    sha256: "77219c8b40f4ee8d73a7f902305ff6c1128ef9b54461c41b4ca6ed890b6c2803",
+    kind: "zipvoice",
+    languages: ["zh", "en"],
+    license: "Apache-2.0 · 音色见上游示例",
+    licenseUrl: "https://huggingface.co/k2-fsa/ZipVoice",
+    source: "https://github.com/k2-fsa/ZipVoice",
+    qualitySteps: { fast: 2, balanced: 4, high: 8 },
+    defaultVoice: 0,
+    voices: [
+      [0, "新闻女声 1 · 中文", "zh-CN"],
+      [1, "新闻女声 2 · 中文", "zh-CN"],
+    ],
+    references: [
+      {
+        file: "test_wavs/news-female.wav",
+        text: "各位村民, 大家新年好! 近期, 湖北省武汉市等多个地区",
+      },
+      {
+        file: "test_wavs/news-female-2.wav",
+        text: "本台消息, 中共中央国务院, 近日印发关于构建数据基础制度, 更好发挥数据要素作用的意见.",
+      },
+    ],
+    requiredFiles: [
+      "encoder.int8.onnx",
+      "decoder.int8.onnx",
+      "tokens.txt",
+      "lexicon.txt",
+      "espeak-ng-data",
+      "vocos_24khz.onnx",
+      "test_wavs/news-female.wav",
+      "test_wavs/news-female-2.wav",
+    ],
+    extras: [
+      {
+        name: "vocos_24khz.onnx",
+        url: "https://github.com/k2-fsa/sherpa-onnx/releases/download/vocoder-models/vocos_24khz.onnx",
+        size: 54157409,
+        sha256:
+          "bcb3b970e384161c4d634f0bb9e999ff1c471b34c9bc0b1049a5014065ed3cc0",
+      },
+    ],
+  },
+  {
+    id: "pocket-en",
+    name: "Pocket TTS · 英文自然朗读",
+    description:
+      "英文本地首选，100M 模型，使用完整精度权重。提供 Alba 女声与 Bill 男声；不支持中文。",
+    size: 168148625,
+    archive: "sherpa-onnx-pocket-tts-2026-01-26.tar.bz2",
+    folder: "sherpa-onnx-pocket-tts-2026-01-26",
+    sha256: "61422a478ef09d9b2c067261fb822e11786e0c86842c76d8633b7069968be7b5",
+    kind: "pocket",
+    languages: ["en"],
+    license: "CC-BY-4.0 · 音色 CC-BY-4.0 / CC0",
+    licenseUrl: "https://huggingface.co/kyutai/pocket-tts",
+    source: "https://github.com/kyutai-labs/pocket-tts",
+    qualitySteps: { fast: 1, balanced: 2, high: 4 },
+    defaultVoice: 0,
+    voices: [
+      [0, "Alba MacKenna · 英文女声", "en-GB"],
+      [1, "Bill Boerst · 英文男声", "en-US"],
+    ],
+    references: [{ file: "alba.wav" }, { file: "bill.wav" }],
+    requiredFiles: [
+      "lm_flow.onnx",
+      "lm_main.onnx",
+      "encoder.onnx",
+      "decoder.onnx",
+      "text_conditioner.onnx",
+      "vocab.json",
+      "token_scores.json",
+      "alba.wav",
+      "bill.wav",
+    ],
+    extras: [
+      {
+        name: "alba.wav",
+        url: "https://huggingface.co/kyutai/tts-voices/resolve/323332d33f997de8394f24a193e1a76df720e01a/alba-mackenna/casual.wav",
+        size: 958542,
+        sha256:
+          "46264e83cb99115c3d210260e029117566d9c64f20266d10daa78107759ede3e",
+      },
+      {
+        name: "bill.wav",
+        url: "https://huggingface.co/kyutai/tts-voices/resolve/323332d33f997de8394f24a193e1a76df720e01a/voice-zero/bill_boerst.wav",
+        size: 955496,
+        sha256:
+          "be4815e4fb760ba1b78117545a260cce4a4c124c7657bc5c6127a0fef8ba661f",
+      },
+    ],
+  },
+  {
+    id: "kitten-mini-en",
+    name: "Kitten Mini 0.8 · 轻量英文",
+    description:
+      "80M 英文模型，约 64 MiB 下载，八种音色。适合希望减少下载与内存占用的英文阅读；不支持中文。",
+    size: 67547594,
+    archive: "kitten-mini-en-v0_8.tar.bz2",
+    folder: "kitten-mini-en-v0_8",
+    sha256: "518f9b130320f690d5b5476df77bde4215fca67773cda16710318e5081234b9d",
+    kind: "kitten",
+    languages: ["en"],
+    model: "model.onnx",
+    license: "Apache-2.0",
+    licenseUrl: "https://huggingface.co/KittenML/kitten-tts-mini-0.8",
+    source: "https://github.com/KittenML/KittenTTS",
+    defaultVoice: 1,
+    voices: [
+      [0, "Jasper · 男声", "en-US"],
+      [1, "Bella · 女声", "en-US"],
+      [2, "Bruno · 男声", "en-US"],
+      [3, "Luna · 女声", "en-US"],
+      [4, "Hugo · 男声", "en-US"],
+      [5, "Rosie · 女声", "en-US"],
+      [6, "Leo · 男声", "en-US"],
+      [7, "Kiki · 女声", "en-US"],
+    ],
+    requiredFiles: ["model.onnx", "voices.bin", "tokens.txt", "espeak-ng-data"],
+  },
+  {
     id: "kokoro-int8",
+    legacy: true,
     name: "Kokoro 82M · 中英多音色",
     description:
       "INT8 神经语音，中文与英文；CPU 推理，无需显卡。首次使用需要加载模型。",
@@ -33,6 +161,7 @@ const MODELS = [
   },
   {
     id: "piper-lessac",
+    legacy: true,
     name: "Piper Lessac · 轻量英文",
     description: "单音色英文神经语音，适合优先节省 CPU 的英文阅读。",
     size: 67230653,
@@ -49,5 +178,10 @@ const MODELS = [
     defaultVoice: 0,
     voices: [[0, "Lessac · 英文", "en-US"]],
   },
-].map((m) => ({ ...m, url: base + m.archive }));
+].map((m) => ({
+  ...m,
+  url: base + m.archive,
+  archiveSize: m.size,
+  size: m.size + (m.extras || []).reduce((total, file) => total + file.size, 0),
+}));
 module.exports = { MODELS };

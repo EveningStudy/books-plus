@@ -49,7 +49,8 @@ export function ModelManager({
             <div>
               <strong>{m.name}</strong>
               <span>
-                {Math.round(m.size / 1048576)} MB 下载 · {m.license}
+                {m.legacy ? "已安装的旧模型 · " : ""}
+                {Math.round(m.size / 1048576)} MiB 下载 · {m.license}
               </span>
               <p>{m.description}</p>
             </div>

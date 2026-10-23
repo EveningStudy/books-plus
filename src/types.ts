@@ -18,6 +18,8 @@ export type VoiceSettings = {
   engine: "native" | "edge" | "piper" | "neural";
   modelId: string;
   threads: number;
+  quality: "fast" | "balanced" | "high";
+  presetVersion: number;
   voice: string;
   rate: number;
   pitch: number;
@@ -138,6 +140,8 @@ export type ModelProgress = {
   error?: string;
 };
 export type ModelInfo = {
+  legacy?: boolean;
+  qualitySteps?: Record<VoiceSettings["quality"], number>;
   id: string;
   name: string;
   description: string;
@@ -152,6 +156,7 @@ export type ModelInfo = {
 };
 export type Cue = { time: number; start: number; length: number };
 export type SpeechResult = {
+  playbackRate?: number;
   url: string;
   cues: Cue[];
   timing: "sentence" | "word";
