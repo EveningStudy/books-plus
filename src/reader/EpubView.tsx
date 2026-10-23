@@ -31,6 +31,8 @@ export const EpubView = forwardRef<ReaderHandle, ReaderProps>(
     const cache = useRef(new Map<number, Sentence[]>());
     const speechCfi = useRef<string | null>(null);
     const locationsReady = useRef(false);
+    const userNavigation = useRef(false);
+    const interacted = useRef(false);
     const [rendered, setRendered] = useState(false);
 
     const sentences = async (index: number) => {
@@ -54,18 +56,22 @@ export const EpubView = forwardRef<ReaderHandle, ReaderProps>(
       speechCfi.current = null;
     };
     const navigate = async (target: { cfi?: string; href?: string }) => {
-      if (target.cfi || target.href)
+      if (target.cfi || target.href) {
+        userNavigation.current = interacted.current = true;
         await renditionRef.current?.display(
           target.cfi ? point(target.cfi) : target.href,
         );
+      }
     };
     useImperativeHandle(ref, () => ({
       next() {
+        userNavigation.current = interacted.current = true;
         return renditionRef.current
           ?.next()
           .catch((e) => latest.current.onError(String(e)));
       },
       previous() {
+        userNavigation.current = interacted.current = true;
         return renditionRef.current
           ?.prev()
           .catch((e) => latest.current.onError(String(e)));
@@ -73,6 +79,7 @@ export const EpubView = forwardRef<ReaderHandle, ReaderProps>(
       async seek(progress) {
         const book = bookRef.current;
         if (!book) return;
+        userNavigation.current = interacted.current = true;
         if (locationsReady.current)
           await renditionRef.current?.display(
             book.locations.cfiFromPercentage(progress),
@@ -222,6 +229,15 @@ export const EpubView = forwardRef<ReaderHandle, ReaderProps>(
         });
         renditionRef.current = rendition;
         rendition.hooks.content.register((contents: Contents) => {
+          for (const event of ["wheel", "touchmove"])
+            contents.document.addEventListener(
+              event,
+              () => {
+                if (latest.current.settings.scroll)
+                  userNavigation.current = interacted.current = true;
+              },
+              { passive: true },
+            );
           contents.document.addEventListener("keydown", (event) => {
             if (
               event.code === "Space" ||
@@ -254,6 +270,7 @@ export const EpubView = forwardRef<ReaderHandle, ReaderProps>(
             "click",
             (event) => {
               const link = (event.target as Element).closest?.("a");
+              if (link) userNavigation.current = interacted.current = true;
               if (
                 link &&
                 /^(https?:|mailto:|javascript:)/i.test(
@@ -288,11 +305,16 @@ export const EpubView = forwardRef<ReaderHandle, ReaderProps>(
           const fraction = locationsReady.current
             ? book.locations.percentageFromCfi(location.start.cfi)
             : latest.current.initial.progress;
-          latest.current.onLocation({
-            cfi: location.start.cfi,
-            progress: Math.max(0, Math.min(1, fraction || 0)),
-            label: `${location.start.displayed.page} / ${location.start.displayed.total} · 本章${locationsReady.current ? "" : "（正在索引）"}`,
-          });
+          const persist = userNavigation.current;
+          userNavigation.current = false;
+          latest.current.onLocation(
+            {
+              cfi: location.start.cfi,
+              progress: Math.max(0, Math.min(1, fraction || 0)),
+              label: `${location.start.displayed.page} / ${location.start.displayed.total} · 本章${locationsReady.current ? "" : "（正在索引）"}`,
+            },
+            persist,
+          );
         };
         rendition.on("relocated", report);
         const initial = latest.current.initial.cfi || latest.current.appleCfi;
@@ -321,7 +343,11 @@ export const EpubView = forwardRef<ReaderHandle, ReaderProps>(
         await book.locations.generate(150);
         if (disposed) return;
         locationsReady.current = true;
-        if (!exact && latest.current.initial.progress > 0)
+        if (
+          !exact &&
+          !interacted.current &&
+          latest.current.initial.progress > 0
+        )
           await rendition.display(
             book.locations.cfiFromPercentage(latest.current.initial.progress),
           );

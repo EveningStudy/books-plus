@@ -1,16 +1,20 @@
 # Books+
 
-Mac Apple Books 风格的桌面阅读器：云端书库、多格式阅读、可下载的本地神经语音、透明置顶字幕。Windows 优先，同一套 Electron / React 代码预留 macOS 支持。可连接 [books-icloud-exporter](https://github.com/EveningStudy/books-icloud-exporter) 导出目录。
+当前版本：**0.4.0**。
+
+Mac Apple Books 风格的桌面阅读器：云端书库、多格式阅读、可下载的本地神经语音、透明置顶字幕。支持 Windows 与 macOS；Mac 内置 Apple Books 后台同步、登录项与菜单栏。可连接 [books-icloud-exporter](https://github.com/EveningStudy/books-icloud-exporter) 导出目录。
 
 ## 使用
 
-打开 Windows 便携版 `BooksPlus-0.2.3-x64.exe`，无需 Node、Python 或配置语音模型路径。
+Mac 打开 `Books+.app`（本次构建在 `release/mac-arm64/`）；Windows 使用便携版。运行打包应用无需 Node、Python 或配置语音模型路径。
+
+Mac 首次启动选择 **只同步 / 只阅读 / 两者都用**。只同步隐藏 Dock 图标，仅保留菜单栏；两者都用时关闭阅读器窗口也继续同步，⌘Q 才退出。同步模式支持登录后后台启动，需按系统要求允许完全磁盘访问和登录项。运行模式与同步状态在「设置 → Mac 同步」管理。
 
 默认查找 `%USERPROFILE%\iCloudDrive\Books Export`；也可选择其他云盘文件夹。兼容原 `library.json`、新版 `catalog.json`，空文件夹会初始化为新书库。书库右下角「加入图书」可批量导入文件到云盘，保留原格式。
 
 浏览只读取书目、记录和小封面，点击图书才读取正文，由云盘客户端下载。默认 **7 天未阅读后释放本地下载**，在「设置 → 书库」可调整或关闭；图书更多选项可「下载并保留离线」或手动释放。
 
-Windows 使用 Cloud Files API，仅释放已同步、未固定的占位文件；不删除云端原件。提供程序可能拒绝操作，普通文件夹及未接入此接口的平台须在云盘客户端管理空间。新增文件需完成上传并成为云占位文件后才能释放。自动清理只管理 Books+ 打开过的书，仅在应用运行时检查。
+Windows 使用 Cloud Files API，Mac iCloud Drive 使用 Foundation 的移除本机下载接口，仅释放已同步且未固定的正文，并跳过应用离线保护的书籍；不删除云端原件。提供程序可能拒绝操作，普通文件夹及未接入此接口的平台须在云盘客户端管理空间。新增文件需完成上传并成为云占位文件后才能释放。自动清理只管理 Books+ 打开过的书，仅在应用运行时检查。
 
 旧导出器没有独立封面时，未打开的书显示文字封面；打开后缓存真实 EPUB 封面。未来导出器可提供封面侧文件，避免浏览时下载整本书。
 
@@ -68,7 +72,13 @@ Calibre 需[单独安装](https://calibre-ebook.com/download)，在「设置 →
 | 锁定 / 解锁字幕     | Ctrl / ⌘ + Shift + L       |
 | 返回书库 / 关闭面板 | Esc                        |
 
-## 云端与未来 Mac
+## 云端与 Apple Books 同步
+
+支持 iCloud Drive、OneDrive、Dropbox、Google Drive、坚果云、Syncthing 等客户端同步的本地文件夹。Mac 和 Windows 选择同一份云端书库的本地副本，无需在 Books+ 登录云盘。只有网页/API、没有本地同步或挂载目录的服务暂不支持；详情见 [云盘兼容范围](docs/CLOUD_LIBRARY.md#云盘兼容范围)。
+
+0.4.0 阅读器每 5 秒及聚焦时读取到达本地的新状态，打开书前再次刷新。阅读中收到远端新位置显示「接着读」；初始化、索引、排版和接续恢复不重新发布进度。Books 前台阅读时暂缓后台自动跳转，可主动点「在 Books 中继续」。helper 事件合并最长约 1.5 秒、30 秒补查；实际跨端延迟仍取决于云盘传输和 Books 保存。
+
+**58 项测试通过**，打包阅读器 EPUB/PDF/TXT/Markdown/FB2 用户流程、真实 Books 第 14 页回写保存与第 15 页继续阅读导出均已复测。范围与限制见 [0.4.0 验收报告](docs/TESTING-0.4.0.md)；Windows/macOS 原生 CI 结果见仓库 Actions。
 
 书籍、书目、封面、进度、书签、批注在云盘；本机备份、正文副本、生成缓存可恢复。上传由云盘客户端负责，「已写入云盘文件夹」不等于已确认上传。
 
@@ -77,11 +87,18 @@ Calibre 需[单独安装](https://calibre-ebook.com/download)，在「设置 →
 - [书库布局与协议 v2](docs/CLOUD_LIBRARY.md)：ID、不可变内容、导入侧文件、封面、多设备与 Mac 接口。
 - [进度协议 v1](docs/SYNC.md)：每台设备只写自己的快照，先保存本机再写云盘，失败每 30 秒重试。
 
-原导出器的 `library.json`、`manifest.json`、`books/`、`notes/`、`records/` 不改写。**不实现 Apple Books 双向同步**，未来 Mac 服务可按协议开发。
+原导出器的 `library.json`、`manifest.json`、`books/`、`notes/`、`records/` 不改写。Mac 内置同步 helper：
+
+- **Books → 云盘**：FSEvents 监听变化，自动导出无 DRM EPUB/PDF、进度、批注和完成状态。先发布不可变正文，再写 catalog 侧文件；Apple Books 以独立虚拟设备写 v1 进度快照。
+- **云盘 → Books**：新 EPUB/PDF 用 `open -a Books` 导入；按正文指纹确认 Apple asset ID。相同修订 EPUB 的新进度用 `ibooks://assetid/<id>#epubcfi(...)` 定位，由 Books 自己保存。设置可关闭自动位置回写，改用「在 Books 中继续」。
+- **映射与回声**：云书 UUID 与 Apple asset ID 分开记录；只回写同修订位置，回写前写日志，等 Books 保存位置后确认，沿用云端原时间，重启不重复导航。多候选、损坏正文与修订冲突会提示。
+- **位置边界**：Books 会把段内 CFI 保存为页首 CFI，且可能在关闭书籍窗口后才落库；不能精确确认时显示待核对，提供确认、重试、取消。此 URL 依据本机实验，非已确认的 Apple 稳定公开 API。PDF/百分比、批注、完成状态不回写；不直接写 Apple 数据库。
+
+完整架构、权限、恢复与验收见 [Mac 使用与开发说明](docs/MAC.md)，可行性实验见 [Apple Books 回写研究](docs/research/apple-books-writeback.md)。
 
 ## 开发
 
-需要 Node.js 24+ 和 npm，Windows 接口使用系统 PowerShell / .NET。
+需要 Node.js 24+ 和 npm；Mac 开发还需 Xcode Command Line Tools，Windows 接口使用系统 PowerShell / .NET。
 
 ```powershell
 npm ci
@@ -89,6 +106,7 @@ npm run dev
 npm run build
 npm start
 npm test
+npm run test:desktop
 npm run package:win
 ```
 
@@ -96,13 +114,21 @@ npm run package:win
 
 环境变量：`READER_USER_DATA` 隔离配置，`READER_LIBRARY_ROOT` 指定书库，`READER_MODELS_DIR` 指定模型目录。升级保留 `%APPDATA%/icloud-books-reader` 配置；模型默认 `%LOCALAPPDATA%/BooksReader/models`。
 
-macOS 可安装依赖后运行 `npm run dev`，`npm run package:mac` 生成 app 目录。已预留 Mac 路径、菜单、快捷键和 `say`，**未在 Mac 实机验证、签名或实现原生云文件释放**；其他 CPU 架构未验证。
+Mac 构建与隔离验收：
+
+```sh
+npm run package:mac         # 自动编译 Swift helper，生成 Books+.app
+npm run test:mac            # 已打包应用的隔离验收
+npm run package:mac:dmg     # 拖到 Applications 的 DMG
+```
+
+Mac 配置在 `~/Library/Application Support/icloud-books-reader`。本次为 Apple Silicon 构建，已实机运行；使用 ad-hoc 本地签名，尚无 Developer ID 签名与 Apple 公证。公开分发前需配置自己的签名证书与公证。Intel / universal 包未构建验收。
 
 ## 验证与边界
 
 自动化测试覆盖浏览不读正文、7 天释放保护条件、书库状态隔离、原记录保留、文本编码、HTML 清洗 / 图片、FB2、漫画页序、转换错误、进度合并与本机写入恢复。Windows 桌面隔离库验证多格式导入 / 打开、四种翻页、PDF 翻页、模型试听、音频字幕、书签与重启恢复。
 
-真实 iCloud 文件已验证「释放下载 → 云端占位 → 重新读取」，前后 SHA-256 一致。尚未进行人工音质评价、完整格式语料测试或 Apple 私有排版引擎的像素一致性验证。没有书店、购买、Apple 登录、DRM、字典、手写批注或 Apple Books 写回。
+原 Windows 版本记录了真实 iCloud 文件「释放下载 → 云端占位 → 重新读取」的 SHA-256 一致性验证；Mac 驱逐接口已接入，本次未对个人云端原件重做驱逐实验。尚未进行人工音质评价、完整格式语料测试或 Apple 私有排版引擎的像素一致性验证。0.4.0 的 58 项测试与新增用户流程见上方验收报告；Windows 原生 CI 与本地协议模拟分开记录。尚未验证实际重新登录、第二台个人电脑的真实云盘传输、另一台 Apple 设备收到进度、全部格式和 Books 版本。没有书店、购买、Apple 登录、DRM、字典或手写批注。
 
 ## 开源
 

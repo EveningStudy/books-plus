@@ -44,6 +44,26 @@ function within(root, relative) {
     throw Error("书籍路径超出书库目录");
   return full;
 }
+function stable(value) {
+  if (Array.isArray(value)) return `[${value.map(stable).join(",")}]`;
+  if (value && typeof value === "object")
+    return `{${Object.keys(value)
+      .sort()
+      .map((k) => `${JSON.stringify(k)}:${stable(value[k])}`)
+      .join(",")}}`;
+  return JSON.stringify(value);
+}
+function newer(value, previous) {
+  const time = Date.parse(value?.updatedAt);
+  if (!Number.isFinite(time)) return false;
+  const before = Date.parse(previous?.updatedAt);
+  // Equal timestamps must converge independently of directory enumeration order.
+  return (
+    !Number.isFinite(before) ||
+    time > before ||
+    (time === before && stable(value) > stable(previous))
+  );
+}
 function mergeDevices(devices) {
   const books = {};
   for (const device of devices) {
@@ -61,27 +81,35 @@ function mergeDevices(devices) {
       )
         continue;
       const target = (books[id] ||= { marks: {} });
-      for (const field of ["reading", "preferences", "status"]) {
-        if (
-          data[field]?.updatedAt &&
-          (!target[field] || data[field].updatedAt > target[field].updatedAt)
-        )
-          target[field] = data[field];
-      }
+      for (const field of ["reading", "preferences", "status"])
+        if (newer(data[field], target[field])) target[field] = data[field];
       for (const [markId, mark] of Object.entries(data.marks || {})) {
         if (["__proto__", "constructor", "prototype"].includes(markId))
           continue;
-        if (
-          mark?.updatedAt &&
-          (!target.marks[markId] ||
-            mark.updatedAt > target.marks[markId].updatedAt)
-        )
-          target.marks[markId] = mark;
+        if (newer(mark, target.marks[markId])) target.marks[markId] = mark;
       }
     }
   }
   return books;
 }
+async function readDevices(root) {
+  const devices = [],
+    errors = [];
+  const folder = path.join(root, "reader-state/v1/devices");
+  const names = await fs.readdir(folder).catch((e) => {
+    if (e.code === "ENOENT") return [];
+    throw e;
+  });
+  for (const name of names.filter((n) => n.endsWith(".json")).sort()) {
+    try {
+      devices.push(await json(path.join(folder, name)));
+    } catch (e) {
+      errors.push(`同步快照 ${name}: ${e.message}`);
+    }
+  }
+  return { devices, errors };
+}
+
 class Library {
   constructor(userDir, { cloud } = {}) {
     this.userDir = userDir;
@@ -213,7 +241,12 @@ class Library {
     );
     this.downloads = await json(path.join(this.localDir, "downloads.json"), {});
   }
-  async load() {
+  load() {
+    const result = this.queue.then(() => this.loadNow());
+    this.queue = result.catch(() => {});
+    return result;
+  }
+  async loadNow() {
     const root = this.config.root;
     const [catalog, annotations, positions, history] = await Promise.all([
       this.catalog(root),
@@ -229,6 +262,7 @@ class Library {
     );
     const files = [];
     for (const [id, b] of this.items) {
+      b._revision = b.revision || b.sha256;
       if (!b.file || b.file.startsWith("unvalidated-books/")) continue;
       try {
         const file = await this.bookPath(id),
@@ -245,34 +279,38 @@ class Library {
         files.push({ id, path: file });
       } catch {}
     }
-    const statuses = await this.cloud
-      .inspect(files)
-      .catch(() =>
-        files.map((f) => ({
-          id: f.id,
-          status: { state: "unknown", supported: false },
-        })),
-      );
+    const statuses = await this.cloud.inspect(files).catch(() =>
+      files.map((f) => ({
+        id: f.id,
+        status: { state: "unknown", supported: false },
+      })),
+    );
     this.storage = new Map(statuses.map((s) => [s.id, s.status]));
-    const devices = [this.device];
     let syncError = null;
     try {
-      const folder = path.join(root, "reader-state/v1/devices");
-      const names = await fs.readdir(folder).catch((e) => {
-        if (e.code === "ENOENT") return [];
-        throw e;
-      });
-      for (const name of names.filter((n) => n.endsWith(".json"))) {
-        try {
-          devices.push(await json(path.join(folder, name)));
-        } catch (e) {
-          syncError = `部分同步记录无法读取：${e.message}`;
-        }
-      }
+      const { devices, errors } = await readDevices(root);
+      // Recover our own cloud snapshot after profile loss or an interrupted local backup.
+      // Other devices remain read-only and never become our device identity.
+      const own = devices.filter(
+        (d) => d?.version === 1 && d.deviceId === this.config.deviceId,
+      );
+      this.device.books = mergeDevices([...own, this.device]);
+      this.device.updatedAt = [
+        this.device.updatedAt,
+        ...own.map((d) => d.updatedAt),
+      ]
+        .filter(Boolean)
+        .sort()
+        .at(-1);
+      this.merged = mergeDevices([...devices, this.device]);
+      if (errors.length) syncError = errors.join("；");
     } catch (e) {
       syncError = e.message;
+      this.merged = mergeDevices([
+        { version: 1, books: this.merged },
+        this.device,
+      ]);
     }
-    this.merged = mergeDevices(devices);
     const books = raw.map((b) => {
       const position = positions
         .filter(
@@ -646,15 +684,32 @@ class Library {
   save(id, patch) {
     const run = async () => {
       if (!this.items.has(id)) throw Error("未知图书");
+      // Read arriving remote fields before combining a local partial edit.
+      // A favorite toggle must not discard a remote finished/want flag.
+      try {
+        const { devices } = await readDevices(this.config.root);
+        this.merged = mergeDevices([
+          ...devices,
+          { version: 1, books: this.merged },
+          this.device,
+        ]);
+      } catch {
+        /* Local edits stay available while the provider is offline. */
+      }
       const current = (this.device.books[id] ||= { marks: {} });
-      const now = new Date().toISOString();
+      const now = new Date(
+        Math.max(Date.now(), (Date.parse(this.device.updatedAt) || 0) + 1),
+      ).toISOString();
       for (const field of ["reading", "preferences", "status"])
         if (patch[field])
           current[field] = {
             ...(this.merged?.[id]?.[field] || current[field] || {}),
             ...patch[field],
             ...(field === "reading"
-              ? { contentRevision: this.items.get(id)._revision }
+              ? {
+                  contentRevision: this.items.get(id)._revision,
+                  originDeviceId: this.config.deviceId,
+                }
               : {}),
             updatedAt: now,
           };
@@ -674,14 +729,14 @@ class Library {
   }
   async flush() {
     try {
-      await atomicJson(
-        path.join(
-          this.config.root,
-          "reader-state/v1/devices",
-          `${this.config.deviceId}.json`,
-        ),
-        this.device,
+      const file = path.join(
+        this.config.root,
+        "reader-state/v1/devices",
+        `${this.config.deviceId}.json`,
       );
+      const previous = await json(file, null);
+      if (JSON.stringify(previous) !== JSON.stringify(this.device))
+        await atomicJson(file, this.device);
       return { synced: true, at: this.device.updatedAt };
     } catch (e) {
       return {
@@ -701,4 +756,12 @@ class Library {
     return result;
   }
 }
-module.exports = { Library, within, mergeDevices, atomicJson, json };
+module.exports = {
+  Library,
+  within,
+  mergeDevices,
+  atomicJson,
+  json,
+  readDevices,
+  newer,
+};

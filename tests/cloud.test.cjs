@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
-const { Library, atomicJson } = require("../desktop/library.cjs");
+const { Library, atomicJson } = require("./helpers.cjs");
 async function setup(t) {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "booksplus-cloud-"));
   t.after(() => fs.rm(dir, { recursive: true, force: true }));

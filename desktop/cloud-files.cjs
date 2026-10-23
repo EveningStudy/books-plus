@@ -1,4 +1,6 @@
-const { spawn } = require("node:child_process");
+const { spawn, execFile } = require("node:child_process");
+const { promisify } = require("node:util");
+const exec = promisify(execFile);
 const fs = require("node:fs/promises");
 const path = require("node:path");
 const crypto = require("node:crypto");
@@ -7,6 +9,9 @@ const crypto = require("node:crypto");
 class CloudFiles {
   constructor(script = path.join(__dirname, "cloud-files.ps1")) {
     this.script = script;
+    this.macBinary = process.resourcesPath
+      ? path.join(process.resourcesPath, "booksplus-bridge")
+      : path.join(__dirname, "../build/native/booksplus-bridge");
     this.pending = new Map();
   }
   request(value) {
@@ -72,6 +77,17 @@ class CloudFiles {
     if (!files.length) return [];
     if (process.platform === "win32")
       return this.request({ action: "inspect", files });
+    if (
+      process.platform === "darwin" &&
+      (await fs.stat(this.macBinary).catch(() => null))
+    ) {
+      const { stdout } = await exec(
+        this.macBinary,
+        ["cloud-inspect", JSON.stringify(files)],
+        { timeout: 30000, maxBuffer: 8 * 1048576 },
+      );
+      return JSON.parse(stdout);
+    }
     return Promise.all(
       files.map(async ({ id, path: file }) => ({
         id,
@@ -89,6 +105,12 @@ class CloudFiles {
     );
   }
   async release(file) {
+    if (process.platform === "darwin") {
+      const { stdout } = await exec(this.macBinary, ["cloud-release", file], {
+        timeout: 30000,
+      });
+      return JSON.parse(stdout);
+    }
     if (process.platform !== "win32")
       throw Error("此平台请使用云盘客户端的“移除下载”；阅读器不会删除云端原件");
     return this.request({ action: "release", path: file });

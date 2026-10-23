@@ -1,6 +1,6 @@
 # Books+ 云端书库协议 v2
 
-面向 Windows、未来 Mac 阅读器和独立 Apple Books 同步服务。云盘是持久数据源，本机保留进度备份、下载状态、封面和生成缓存。本协议不实现 Apple 数据库写回。
+面向 Windows、Mac 阅读器和内置 Apple Books 同步服务。云盘是持久数据源，本机保留进度备份、下载状态、封面和生成缓存。应用通过正常导入与 EPUB 深链接交给 Books 保存位置；协议 JSON 不直接写入 Apple 数据库。
 
 ## 布局
 
@@ -76,7 +76,7 @@ HTML / Markdown 附属图片保留相对路径，拒绝目录外、链接越界�
 
 Windows 属性查询使用 `OPEN_REPARSE_POINT` 与 `CfGetPlaceholderInfo`，释放使用 `CfOpenFileWithOplock` + `CfDehydratePlaceholder`。不会删除云端原文件。拒绝释放：正在打开 / 阅读、应用固定离线、系统固定、尚未同步、非占位文件、提供程序拒绝。取消应用固定不会取消云盘客户端原有固定状态。
 
-报告 `cloud`、`downloaded`、`local`、`missing`、`unknown`；这些状态不承诺服务器上传到达时间。非 Windows 目前只报告普通本地状态，需客户端手动释放。未来 macOS iCloud 可接入 [FileManager.evictUbiquitousItem](<https://developer.apple.com/documentation/foundation/filemanager/evictubiquitousitem(at:)>)，其他 File Provider 需分别适配。
+报告 `cloud`、`downloaded`、`local`、`missing`、`unknown`；这些状态不承诺服务器上传到达时间。macOS iCloud 使用 Foundation 查询下载/上传状态，已上传且无冲突时调用 [FileManager.evictUbiquitousItem](<https://developer.apple.com/documentation/foundation/filemanager/evictubiquitousitem(at:)>) 释放本机正文。其他 File Provider 需在客户端操作。Mac 的离线标记由 Books+ 管理，不宣称设置系统级 Keep Downloaded。
 
 默认 7 天未阅读清理，可设 1 / 7 / 14 / 30 / 90 天或关闭。仅管理本机在 Books+ 打开过的书，每小时和启动后检查；当前书、离线书、目录、封面、进度和批注保留。对应转换缓存一并释放。普通同步盘不能用删除本地文件模拟释放，否则会传播删除。
 
@@ -92,9 +92,27 @@ Windows 属性查询使用 `OPEN_REPARSE_POINT` 与 `CfGetPlaceholderInfo`，释
 
 模型、音频缓存、离线固定和窗口位置属于本机，不放云盘。当前不回收内容历史版本、标注墓碑或导出器数据。
 
-## 后续 Mac 同步服务
+## Mac 同步服务
 
-1. 观察官方 Books 的新增、修订、进度、批注，使用稳定 ID；先发布不可变正文与小封面，再发布书目快照。
-2. 读取设备快照，处理位置映射、权限、时钟、冲突、删除和恢复；不能将协议 JSON 替换 Apple 数据库。
-3. 回写前核对目标书及修订，留存两边记录和转换版本。
-4. 等云盘确认上传后再释放本机内容。双向映射与上述服务均未在当前阅读器实现。
+Books+.app 包含常驻 FSEvents helper、登录项、菜单栏和三种运行模式。新增 Apple 书保留 asset ID，云端 UUID 书使用独立本机映射；EPUB 文件内容指纹处理 ZIP 重打包差异。映射与虚拟设备日志按 libraryId 隔离；每个安装有独立于阅读器的 Apple Books 虚拟设备 UUID。
+
+同步器先写 `content/<id>/<sha>.<ext>`，再发布自己的 `catalog/extra/<id>.json`，不改外部发布者的主目录。可选 `book.appleBooks` 记录 `assetId`、`epubIdentifier` 和 `publisherDeviceId`；后者标明侧文件的单写者。正文变更发布新修订并保留旧版本。
+
+云端 EPUB/PDF 正常导入 Books，后验确认唯一且正文一致的 asset。EPUB 位置回写核对修订，再提交深链接；待确认日志抑制回声，PDF/纯百分比及批注不回写。不能用协议 JSON 代替 Apple 数据库。
+
+详细权限、页面对齐确认、故障恢复与实际验收边界见 [MAC.md](MAC.md)。
+
+## 云盘兼容范围
+
+选择客户端同步的**同一份书库本地文件夹**即可：iCloud Drive、OneDrive、Dropbox、Google Drive、坚果云、Syncthing，或其他保持文件字节与相对路径的同步客户端。Books+ 不需要这些提供程序的 OAuth。此范围基于本地文件访问能力，并非逐家服务器的实测认证。仅有网页/API、没有本地同步或挂载目录的服务暂不支持。
+
+| 功能                   | 普通同步目录                 | Windows Cloud Files 提供程序 | Mac iCloud Drive             |
+| ---------------------- | ---------------------------- | ---------------------------- | ---------------------------- |
+| 正文、书目、进度、批注 | 客户端传输                   | 客户端传输                   | 系统传输                     |
+| 读取占位正文           | 客户端处理                   | 系统按需下载                 | 系统按需下载                 |
+| 保留离线               | 应用跳过清理，客户端设置离线 | 同时调用固定接口，可能拒绝   | 应用跳过清理，客户端设置离线 |
+| 释放本机正文           | 客户端操作                   | 原生 API，受保护条件约束     | Foundation，需已上传且无冲突 |
+
+建议把 `catalog.json`、`catalog/`、`reader-state/` 和旧库 `records/` 设为始终保留本机。两端首次连接前等待同步完成；不要分别初始化不同 libraryId 后依靠文件夹名称合库。暂停客户端时仍可保存本机，实际接力需等待客户端恢复。不要同步 Books+ 的 `userData`，否则会复制设备 UUID，破坏单写者规则。
+
+0.4.0 阅读器每 5 秒、打开书前、返回书库和聚焦时读取到达本地的新状态，替代旧版每分钟检查。阅读中更新显示「接着读」，不替换正文或强制跳页。

@@ -1,17 +1,23 @@
 {
   "name": "icloud-books-reader",
-  "version": "0.2.3",
+  "version": "0.4.0",
   "private": true,
   "description": "Books+ desktop reader with cloud libraries, offline neural narration and desktop subtitles",
   "main": "desktop/main.cjs",
   "scripts": {
-    "dev": "node scripts/dev.mjs",
+    "dev": "node scripts/build-mac-helper.mjs && node scripts/dev.mjs",
     "dev:web": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
     "start": "electron .",
     "test": "node --test tests/*.test.cjs",
     "package:win": "npm run build && electron-builder --win portable --x64",
-    "package:mac": "npm run build && electron-builder --mac dir"
+    "package:mac": "npm run build:mac-helper && npm run build && electron-builder --mac dir",
+    "build:mac-helper": "node scripts/build-mac-helper.mjs",
+    "package:mac:dmg": "npm run build:mac-helper && npm run build && electron-builder --mac dmg",
+    "postinstall": "node node_modules/electron/install.js",
+    "test:mac": "node scripts/test-mac.cjs",
+    "prestart": "node scripts/build-mac-helper.mjs",
+    "test:desktop": "node scripts/test-handoff.cjs"
   },
   "build": {
     "appId": "study.evening.reader",
@@ -33,7 +39,24 @@
     },
     "mac": {
       "category": "public.app-category.books",
-      "target": "dir"
+      "target": "dir",
+      "minimumSystemVersion": "13.0",
+      "icon": "desktop/icon.png",
+      "hardenedRuntime": true,
+      "extendInfo": {
+        "NSHumanReadableCopyright": "Copyright \u00a9 EveningStudy",
+        "NSDocumentsFolderUsageDescription": "Books+ accesses the cloud library folder you select.",
+        "NSDownloadsFolderUsageDescription": "Books+ imports books you select."
+      },
+      "extraResources": [
+        {
+          "from": "build/native/booksplus-bridge",
+          "to": "booksplus-bridge"
+        }
+      ],
+      "identity": "-",
+      "entitlements": "desktop/macos/entitlements.plist",
+      "entitlementsInherit": "desktop/macos/entitlements.plist"
     },
     "electronDist": "node_modules/electron/dist",
     "asarUnpack": [
@@ -69,7 +92,8 @@
     "vite": "^8.3.5"
   },
   "overrides": {
-    "@xmldom/xmldom": "^0.9.12"
+    "@xmldom/xmldom": "^0.9.12",
+    "plist": "4.0.0"
   },
   "type": "module",
   "author": "EveningStudy",
@@ -78,5 +102,8 @@
     "type": "git",
     "url": "https://github.com/EveningStudy/books-plus.git"
   },
-  "homepage": "https://github.com/EveningStudy/books-plus"
+  "homepage": "https://github.com/EveningStudy/books-plus",
+  "engines": {
+    "node": ">=24.0.0"
+  }
 }

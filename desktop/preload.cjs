@@ -5,6 +5,14 @@ const on = (name, fn) => {
   return () => ipcRenderer.removeListener(name, listener);
 };
 contextBridge.exposeInMainWorld("reader", {
+  macStatus: () => ipcRenderer.invoke("mac:status"),
+  macSettings: (settings) => ipcRenderer.invoke("mac:settings", settings),
+  macSync: () => ipcRenderer.invoke("mac:sync"),
+  macAction: (action, id, assetId) =>
+    ipcRenderer.invoke("mac:action", action, id, assetId),
+  macPermissions: () => ipcRenderer.invoke("mac:permissions"),
+  onMacStatus: (fn) => on("mac:status", fn),
+  onSettings: (fn) => on("app:settings", fn),
   load: () => ipcRenderer.invoke("library:load"),
   choose: () => ipcRenderer.invoke("library:choose"),
   importBooks: () => ipcRenderer.invoke("library:import"),

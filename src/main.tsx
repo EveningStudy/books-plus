@@ -5,3 +5,5 @@ import "./styles.css";
 ReactDOM.createRoot(document.getElementById("root")!).render(
   location.hash === "#overlay" ? <Overlay /> : <App />,
 );
+
+if (navigator.platform.includes("Mac")) document.body.classList.add("mac");

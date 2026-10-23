@@ -29,6 +29,7 @@ import { Library } from "./components/Library";
 import { Settings } from "./components/Settings";
 import { migrateVoicePreferences } from "./speech/voicePreferences";
 import { IconButton } from "./components/Primitives";
+import { MacSync } from "./components/MacSync";
 const Reader = lazy(() =>
   import("./components/Reader").then((module) => ({ default: module.Reader })),
 );
@@ -53,6 +54,9 @@ export default function App() {
   const activeRef = useRef(active);
   activeRef.current = active;
   const libraryRoot = useRef("");
+  useEffect(() => {
+    if (settings.mac?.mode === "sync") setActive(null);
+  }, [settings.mac?.mode]);
   const syncStatus = useRef<{ root: string; text: string } | null>(null);
   const showError = useCallback((error: unknown) => {
     setMessage(error instanceof Error ? error.message : String(error));
@@ -73,14 +77,17 @@ export default function App() {
         `已读取 ${value.books.length} 本图书`,
     );
   }, []);
+  const refreshing = useRef(false);
   const refresh = useCallback(async () => {
-    if (!window.reader) return;
-    setBusy(true);
+    if (!window.reader || refreshing.current) return;
+    refreshing.current = true;
+    if (!activeRef.current) setBusy(true);
     try {
       applyData(await window.reader.load());
     } catch (e) {
       setMessage(`无法读取书库：${e instanceof Error ? e.message : String(e)}`);
     } finally {
+      refreshing.current = false;
       setBusy(false);
     }
   }, [applyData]);
@@ -100,12 +107,12 @@ export default function App() {
   }, [applyData]);
   useEffect(() => {
     const whenFocused = () => {
-      if (!activeRef.current) refresh();
+      refresh();
     };
     window.addEventListener("focus", whenFocused);
     const timer = setInterval(() => {
-      if (!activeRef.current) refresh();
-    }, 60000);
+      refresh();
+    }, 5000);
     return () => {
       window.removeEventListener("focus", whenFocused);
       clearInterval(timer);
@@ -117,6 +124,13 @@ export default function App() {
       return;
     }
     let cancelled = false;
+    window.reader
+      .macStatus()
+      .then((status) => {
+        if (!cancelled && status.platform === "darwin")
+          setSettings((previous) => ({ ...previous, mac: status.settings }));
+      })
+      .catch(() => {});
     Promise.allSettled([window.reader.load(), window.reader.voices()]).then(
       ([library, voicesResult]) => {
         if (cancelled) return;
@@ -147,6 +161,10 @@ export default function App() {
       },
     );
     const offChoose = window.reader.onChoose(choose);
+    const offSettings = window.reader.onSettings(setSettingsTab);
+    const offMac = window.reader.onMacStatus((status) => {
+      setSettings((previous) => ({ ...previous, mac: status.settings }));
+    });
     const offModels = window.reader.onModelProgress((p) => {
       if (p.phase === "installed" || p.phase === "removed")
         window.reader
@@ -161,6 +179,8 @@ export default function App() {
     return () => {
       cancelled = true;
       offChoose();
+      offSettings();
+      offMac();
       offModels();
       offSync();
       offClosing();
@@ -171,6 +191,7 @@ export default function App() {
     const value = { ...settingsRef.current, ...patch };
     settingsRef.current = value;
     setSettings(value);
+    if (patch.mac) return; // Mode was persisted by the dedicated Mac settings API.
     window.reader
       ?.saveSettings(patch)
       .catch((e) => setMessage(`设置未能保存：${e.message}`));
@@ -232,12 +253,22 @@ export default function App() {
     },
     [saveBook],
   );
-  const openBook = useCallback((book: BookItem) => {
-    if (book.valid) {
-      setActive(book.id);
-      setMessage("");
-    }
-  }, []);
+  const openBook = useCallback(
+    async (book: BookItem) => {
+      if (!book.valid || !window.reader) return;
+      try {
+        const fresh = await window.reader.load();
+        applyData(fresh);
+        if (!fresh.books.some((b) => b.id === book.id && b.valid))
+          throw Error("书目已改变，请刷新书库");
+        setActive(book.id);
+        setMessage("");
+      } catch (e) {
+        showError(e);
+      }
+    },
+    [applyData, showError],
+  );
   const importBooks = useCallback(async () => {
     try {
       const result = await window.reader?.importBooks();
@@ -332,7 +363,20 @@ export default function App() {
   const activeBook = data?.books.find((b) => b.id === active);
   return (
     <>
-      {activeBook ? (
+      {settings.mac?.mode === "sync" ? (
+        <main className="sync-dashboard">
+          <h1>Books+ · Apple Books 同步</h1>
+          <p>关闭此窗口后继续在菜单栏同步。</p>
+          <div className="connection">
+            <span>{data?.root || "尚未连接书库"}</span>
+            <button onClick={choose}>更改云盘书库…</button>
+          </div>
+          <MacSync
+            onError={showError}
+            onMode={(mac) => changeSettings({ mac })}
+          />
+        </main>
+      ) : activeBook ? (
         <Suspense
           fallback={
             <main className="welcome-screen">
@@ -344,6 +388,7 @@ export default function App() {
           <Reader
             key={activeBook.id}
             book={activeBook}
+            deviceId={data!.deviceId}
             settings={settings}
             voices={voices}
             onClose={closeBook}
@@ -374,8 +419,8 @@ export default function App() {
           </div>
           <h1>Books+ · 接着读。</h1>
           <p>
-            连接从 Mac 导出的 Books Export 书库，
-            <br />在 Windows 继续阅读，也可以听。
+            连接云端书库，
+            <br />在 Mac 和 Windows 接着读，也可以听。
           </p>
           {busy ? (
             <LoaderCircle className="spin" size={28} />

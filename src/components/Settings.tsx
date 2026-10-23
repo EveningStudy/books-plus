@@ -17,6 +17,7 @@ import { subtitleDefaults, voiceDefaults } from "../defaults";
 import { Dialog, Range, Switch } from "./Primitives";
 import { ModelManager } from "./ModelManager";
 import { FormatSettings } from "./FormatSettings";
+import { MacSync } from "./MacSync";
 export function Settings({
   initialTab = "voice",
   settings,
@@ -88,6 +89,7 @@ export function Settings({
       <div className="settings-tabs">
         {[
           ["library", "书库", FolderOpen],
+          ["mac", "Mac 同步", Cloud],
           ["formats", "格式支持", FolderOpen],
           ["voice", "朗读", Volume2],
           ["subtitles", "桌面字幕", Captions],
@@ -103,6 +105,9 @@ export function Settings({
         ))}
       </div>
       <div className="settings-content">
+        {tab === "mac" ? (
+          <MacSync onError={onError} onMode={(mac) => onChange({ mac })} />
+        ) : null}
         {tab === "library" ? (
           <>
             <h3>云端书库</h3>
@@ -115,15 +120,16 @@ export function Settings({
               <button onClick={onChoose}>更改…</button>
             </div>
             <p className="help">
-              从 Mac 导出器读取图书、分类、Apple Books
-              位置和批注。阅读器的进度、书签与标注保存在此文件夹的 reader-state
-              中，供 Windows 和未来的 Mac 阅读器共用。
+              支持 iCloud Drive、OneDrive、Dropbox、Google
+              Drive、坚果云、Syncthing 等客户端同步的本地文件夹。Mac 与 Windows
+              请选择同一份云端书库的本地副本， 不需要在 Books+ 登录云盘。书籍与
+              reader-state 都要同步；建议将 JSON 目录保留离线。
             </p>
             <div className="notice">
               <Check size={17} />
               <p>
-                写入同步文件后，上传由云盘客户端负责。当前不向 Apple Books
-                写回记录。
+                写入同步文件后，上传由云盘客户端负责。Mac 可在“Mac 同步”中启用
+                Apple Books 后台同步与位置回写。
               </p>
             </div>
             <h3>下载与本地空间</h3>
@@ -165,8 +171,9 @@ export function Settings({
               立即清理到期下载
             </button>
             <p className="help">
-              Windows 使用云盘客户端的按需文件接口释放正文。普通同步文件夹、Mac
-              或未提供此接口的云盘，需在云盘客户端“移除下载”；应用不会删除云端书籍。目录、封面、进度和批注会保留。
+              Windows 使用 Cloud Files，Mac iCloud Drive
+              使用系统的移除本机下载接口。其他云盘请使用客户端“移除下载”。仅释放已上传且无冲突的正文；“保留离线”由
+              Books+ 保护，不会删除云端书籍。目录、封面、进度和批注会保留。
             </p>
             <h3>快捷键</h3>
             <dl className="shortcuts">

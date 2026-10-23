@@ -21,6 +21,7 @@ export const PdfView = forwardRef<ReaderHandle, ReaderProps>(
     const latest = useRef(props);
     latest.current = props;
     const renderTask = useRef<RenderTask | null>(null);
+    const userNavigation = useRef(false);
     const pageRef = useRef(page);
     pageRef.current = page;
     const renderWait = useRef<
@@ -29,6 +30,7 @@ export const PdfView = forwardRef<ReaderHandle, ReaderProps>(
     const turnTo = (target: number) => {
       target = Math.min(docRef.current?.numPages || 1, Math.max(1, target));
       if (target === pageRef.current) return Promise.resolve();
+      userNavigation.current = true;
       return new Promise<void>((resolve, reject) => {
         renderWait.current.push({ page: target, resolve, reject });
         setPage(target);
@@ -65,6 +67,7 @@ export const PdfView = forwardRef<ReaderHandle, ReaderProps>(
         return turnTo(pageRef.current - 1);
       },
       async seek(progress) {
+        userNavigation.current = true;
         setPage(
           Math.max(
             1,
@@ -73,7 +76,10 @@ export const PdfView = forwardRef<ReaderHandle, ReaderProps>(
         );
       },
       async navigate(target) {
-        if (target.page) setPage(target.page);
+        if (target.page) {
+          userNavigation.current = true;
+          setPage(target.page);
+        }
       },
       sentences: getSentences,
       async current() {
@@ -96,7 +102,10 @@ export const PdfView = forwardRef<ReaderHandle, ReaderProps>(
         return null;
       },
       async follow(sentence) {
-        if (sentence.page) setPage(sentence.page);
+        if (sentence.page && sentence.page !== pageRef.current) {
+          userNavigation.current = true;
+          setPage(sentence.page);
+        }
       },
       clearSpeech() {},
       async search(query, cancelled) {
@@ -202,12 +211,19 @@ export const PdfView = forwardRef<ReaderHandle, ReaderProps>(
             );
             done.forEach((w) => w.resolve());
           }
-          if (!disposed)
-            latest.current.onLocation({
-              page,
-              progress: doc.numPages > 1 ? (page - 1) / (doc.numPages - 1) : 1,
-              label: `${page} / ${doc.numPages} 页`,
-            });
+          if (!disposed) {
+            const persist = userNavigation.current;
+            userNavigation.current = false;
+            latest.current.onLocation(
+              {
+                page,
+                progress:
+                  doc.numPages > 1 ? (page - 1) / (doc.numPages - 1) : 1,
+                label: `${page} / ${doc.numPages} 页`,
+              },
+              persist,
+            );
+          }
         })
         .catch((e) => {
           if (!disposed && e.name !== "RenderingCancelledException")

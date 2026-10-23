@@ -24,7 +24,10 @@ export type ReaderProps = {
   appleCfi?: string;
   settings: import("../types").ReadSettings;
   marks: Mark[];
-  onLocation(location: Reading & { label?: string }): void;
+  onLocation(
+    location: Reading & { label?: string },
+    userInitiated?: boolean,
+  ): void;
   onToc(items: Toc[]): void;
   onReady(): void;
   onError(error: string): void;

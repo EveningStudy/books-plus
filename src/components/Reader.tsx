@@ -58,6 +58,7 @@ const PdfView = lazy(() =>
 
 export function Reader({
   book,
+  deviceId,
   settings,
   voices,
   onClose,
@@ -67,6 +68,7 @@ export function Reader({
   onError,
 }: {
   book: BookItem;
+  deviceId: string;
   settings: AppSettings;
   voices: Voice[];
   onClose: () => void;
@@ -116,6 +118,25 @@ export function Reader({
     book.state.reading || { progress: book.appleProgress },
   );
   const pending = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingReading = useRef<Reading | null>(null);
+  const localAt = useRef(Date.parse(book.state.reading?.updatedAt || "") || 0);
+  const [remoteReading, setRemoteReading] = useState<Reading | null>(null);
+  const [viewGeneration, setViewGeneration] = useState(0);
+  useEffect(() => {
+    const incoming = book.state.reading;
+    if (
+      !incoming?.updatedAt ||
+      incoming.originDeviceId === deviceId ||
+      Date.parse(incoming.updatedAt) <= localAt.current
+    )
+      return;
+    if (
+      incoming.contentRevision &&
+      incoming.contentRevision !== book.contentRevision
+    )
+      return;
+    setRemoteReading(incoming);
+  }, [book.state.reading, book.contentRevision, deviceId]);
   const latestSave = useRef(onSave);
   latestSave.current = onSave;
   const marks = useMemo(
@@ -134,23 +155,36 @@ export function Reader({
     [settings.subtitles],
   );
   const handleLocation = useCallback(
-    (value: Reading & { label?: string }) => {
+    (value: Reading & { label?: string }, userInitiated = false) => {
       const next = { ...value, narration: savedNarration.current };
       locationRef.current = next;
       setLocation(next);
+      if (!userInitiated) return; // Restore, indexing and layout changes are not reading activity.
+      localAt.current = Date.now();
+      setRemoteReading(null);
+      pendingReading.current = next;
       if (pending.current) clearTimeout(pending.current);
       pending.current = setTimeout(() => {
         pending.current = null;
-        latestSave
-          .current(book.id, { reading: locationRef.current })
-          .catch(onError);
+        const reading = pendingReading.current;
+        pendingReading.current = null;
+        if (reading) latestSave.current(book.id, { reading }).catch(onError);
       }, 450);
     },
     [book.id],
   );
   const onSentence = (s: Sentence) => {
+    if (pending.current) clearTimeout(pending.current);
+    pending.current = null;
+    pendingReading.current = null;
     savedNarration.current = { spine: s.spine, index: s.index, href: s.href };
-    const next = { ...locationRef.current, narration: savedNarration.current };
+    const next = {
+      ...locationRef.current,
+      ...(s.cfi ? { cfi: s.cfi } : {}),
+      narration: savedNarration.current,
+    };
+    localAt.current = Date.now();
+    setRemoteReading(null);
     locationRef.current = next;
     setLocation(next);
     latestSave.current(book.id, { reading: next }).catch(onError);
@@ -198,7 +232,9 @@ export function Reader({
       if (pending.current) {
         clearTimeout(pending.current);
         latestSave
-          .current(book.id, { reading: locationRef.current })
+          .current(book.id, {
+            reading: pendingReading.current || locationRef.current,
+          })
           .catch(() => {});
       }
       window.reader?.publish({
@@ -217,9 +253,13 @@ export function Reader({
         clearTimeout(pending.current);
         pending.current = null;
       }
-      latestSave
-        .current(book.id, { reading: locationRef.current })
-        .finally(() => window.reader?.finishClose());
+      const reading = pendingReading.current;
+      pendingReading.current = null;
+      if (reading)
+        latestSave
+          .current(book.id, { reading })
+          .finally(() => window.reader?.finishClose());
+      else window.reader?.finishClose();
     });
     const offControl = window.reader?.onControl((command) => {
       if (command === "toggle") narrationRef.current.toggle();
@@ -448,6 +488,43 @@ export function Reader({
           <Maximize2 size={17} />
         </IconButton>
       </header>
+      {remoteReading ? (
+        <div className="remote-reading" role="status">
+          <span>
+            其他设备有更新的阅读位置（{Math.round(remoteReading.progress * 100)}
+            %）
+          </span>
+          <button
+            onClick={async () => {
+              narration.stop();
+              await pageTurn.cancel();
+              if (pending.current) clearTimeout(pending.current);
+              pending.current = null;
+              pendingReading.current = null;
+              initial.current = remoteReading;
+              savedNarration.current = remoteReading.narration;
+              localAt.current =
+                Date.parse(remoteReading.updatedAt || "") || Date.now();
+              setLocation(remoteReading);
+              locationRef.current = remoteReading;
+              setRemoteReading(null);
+              setReady(false);
+              setViewGeneration((n) => n + 1);
+            }}
+          >
+            接着读
+          </button>
+          <button
+            onClick={() => {
+              localAt.current =
+                Date.parse(remoteReading.updatedAt || "") || Date.now();
+              setRemoteReading(null);
+            }}
+          >
+            留在此处
+          </button>
+        </div>
+      ) : null}
       <div className="reading-body">
         {drawer ? (
           <aside className="reader-drawer">
@@ -572,6 +649,7 @@ export function Reader({
                 }
               >
                 <PdfView
+                  key={viewGeneration}
                   ref={engine}
                   bookId={book.id}
                   bytes={bytes}
@@ -588,6 +666,7 @@ export function Reader({
               </Suspense>
             ) : (
               <EpubView
+                key={viewGeneration}
                 ref={engine}
                 bookId={book.id}
                 bytes={bytes}

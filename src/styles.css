@@ -1865,3 +1865,45 @@ input[type="range"]:disabled::-webkit-slider-thumb {
 .notice p {
   overflow-wrap: anywhere;
 }
+
+/* Native traffic lights and menu-only sync settings. */
+body.mac .sidebar {
+  padding-top: 42px;
+}
+body.mac .reader-toolbar {
+  padding-left: 86px;
+}
+.sync-dashboard {
+  max-width: 920px;
+  padding: 50px 40px;
+  margin: 0 auto;
+  overflow: auto;
+  height: 100vh;
+}
+.mac-sync details {
+  margin: 16px 0;
+}
+.mac-sync li {
+  margin-bottom: 18px;
+  overflow-wrap: anywhere;
+}
+.mac-sync select {
+  max-width: 60%;
+}
+
+.remote-reading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: #f8e8ca;
+  color: #403322;
+  font-size: 13px;
+}
+.remote-reading button {
+  padding: 5px 10px;
+  border-radius: 6px;
+  background: #fff8ec;
+  color: #403322;
+}

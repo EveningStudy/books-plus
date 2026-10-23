@@ -19,3 +19,5 @@ speech-cache/
 config.json
 state-v1.json
 downloads.json
+
+build/

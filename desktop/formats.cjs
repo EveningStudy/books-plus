@@ -277,6 +277,7 @@ class Formats {
             "/Applications/calibre.app/Contents/MacOS/ebook-convert",
             "/usr/bin/ebook-convert",
             "/usr/local/bin/ebook-convert",
+            "/opt/homebrew/bin/ebook-convert",
           ]),
     ].filter(Boolean);
     for (const candidate of candidates)

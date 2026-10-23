@@ -35,3 +35,7 @@ Models download separately from curated sherpa-onnx release assets, with pinned 
 - Microsoft voices and services follow their own terms; Edge access uses a third-party client.
 
 Books+ is independent of Apple and Microsoft. No Apple fonts, purchased books, user annotations or personal cloud data are redistributed.
+
+## Mac integration provenance
+
+The Swift/Node Mac bridge ports the discovery, read-only SQLite backup, Apple-epoch normalization, EPUB package reconstruction and source-stability design from EveningStudy/books-icloud-exporter at commit `5f12ac48844d1700d8f619263232313baa75febd`. It is implemented in this repository rather than bundling its Python CLI. Apple Foundation, CoreServices/FSEvents and SQLite are system frameworks/libraries; Apple Books and its private databases are not bundled. The CFI deep-link behavior is experimental and documented in `docs/research/apple-books-writeback.md`.

@@ -41,6 +41,7 @@ export type SubtitleSettings = {
   alwaysOnTop: boolean;
 };
 export type AppSettings = {
+  mac?: MacSettings;
   reading?: ReadSettings;
   voice?: VoiceSettings;
   subtitles?: SubtitleSettings;
@@ -61,6 +62,7 @@ export type Mark = {
   updatedAt?: string;
 };
 export type Reading = {
+  originDeviceId?: string;
   cfi?: string;
   page?: number;
   progress: number;
@@ -182,7 +184,48 @@ export type OverlayState = {
   locked?: boolean;
 };
 export type SyncResult = { synced: boolean; at?: string; error?: string };
+export type MacSettings = {
+  mode: "sync" | "reader" | "both";
+  login: boolean;
+  writeback: boolean;
+};
+export type MacStatus = {
+  platform: string;
+  packaged: boolean;
+  settings: MacSettings;
+  enabled: boolean;
+  running: boolean;
+  lastSyncedAt?: string;
+  error?: string;
+  watchError?: string;
+  login?: { openAtLogin: boolean; status?: string };
+  issues: { id?: string; assetId?: string; title?: string; error: string }[];
+  mappings: {
+    id: string;
+    assetId: string;
+    title: string;
+    revision: string;
+    pending: boolean;
+    requestedCfi?: string;
+    observedCfi?: string;
+    observedProgress?: number;
+  }[];
+  assets?: { id: string; title: string }[];
+  imports?: string[];
+  pending: number;
+};
 export interface ReaderAPI {
+  macStatus(): Promise<MacStatus>;
+  macSettings(settings: MacSettings): Promise<MacStatus>;
+  macSync(): Promise<MacStatus>;
+  macAction(
+    action: "retry" | "cancel" | "accept" | "continue" | "retry-import" | "map",
+    id: string,
+    assetId?: string,
+  ): Promise<MacStatus>;
+  macPermissions(): Promise<void>;
+  onMacStatus(fn: (status: MacStatus) => void): () => void;
+  onSettings(fn: (tab: string) => void): () => void;
   load(): Promise<LibraryData>;
   choose(): Promise<LibraryData | null>;
   importBooks(): Promise<{

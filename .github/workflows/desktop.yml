@@ -1,0 +1,46 @@
+name: Desktop acceptance
+on:
+  push:
+    branches: [main, "codex/**"]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build:mac-helper
+      - run: npm run build
+      - run: npm run test:desktop
+      - if: runner.os == 'macOS'
+        run: npm run package:mac:dmg
+      - if: runner.os == 'macOS'
+        run: npm run test:mac
+      - if: runner.os == 'Windows'
+        run: npm run package:win
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: BooksPlus-${{ runner.os }}-${{ runner.arch }}
+          path: |
+            release/*.dmg
+            release/*.exe
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: acceptance-evidence-${{ runner.os }}
+          path: .qa/handoff-ui-*/

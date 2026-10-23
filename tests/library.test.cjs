@@ -3,12 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
-const {
-  Library,
-  mergeDevices,
-  within,
-  atomicJson,
-} = require("../desktop/library.cjs");
+const { Library, mergeDevices, within, atomicJson } = require("./helpers.cjs");
 test("device merge retains independent marks, newer progress and deletion tombstones", () => {
   const a = {
     version: 1,
@@ -122,4 +117,109 @@ test("cloud write failure retains durable local progress and can be retried", as
   );
   await fs.rm(path.join(root, "reader-state"));
   assert.equal((await library.flush()).synced, true);
+});
+
+test("equal-time conflicts converge and equivalent ISO offsets compare by time", () => {
+  const device = (reading) => ({ version: 1, books: { b: { reading } } });
+  const a = device({ progress: 0.8, updatedAt: "2026-10-23T12:00:00.000Z" });
+  const b = device({ progress: 0.2, updatedAt: "2026-10-23T13:00:00+01:00" });
+  assert.deepEqual(mergeDevices([a, b]), mergeDevices([b, a]));
+  const c = device({ progress: 0.9, updatedAt: "2026-10-23T12:00:01Z" });
+  assert.equal(mergeDevices([b, c]).b.reading.progress, 0.9);
+  assert.equal(
+    mergeDevices([c, device({ progress: 0, updatedAt: "garbage" })]).b.reading
+      .progress,
+    0.9,
+  );
+});
+test("partial local edits merge newly arrived fields without a preceding library reload", async (t) => {
+  const temp = await fs.mkdtemp(path.join(os.tmpdir(), "books-merge-late-"));
+  t.after(() => fs.rm(temp, { recursive: true, force: true }));
+  const root = path.join(temp, "Dropbox 中文 Library");
+  const mac = await new Library(path.join(temp, "mac")).init();
+  await mac.configure(root);
+  const input = path.join(temp, "book.txt");
+  await fs.writeFile(input, "test");
+  const {
+    imported: [id],
+  } = await mac.import([input]);
+  const win = await new Library(path.join(temp, "win")).init();
+  await win.configure(root);
+  await win.save(id, { status: { want: true, finished: true } });
+  await mac.save(id, { status: { favorite: true } });
+  assert.deepEqual((await win.load()).books[0].state.status, {
+    want: true,
+    finished: true,
+    favorite: true,
+    updatedAt: mac.device.books[id].status.updatedAt,
+  });
+});
+test("own cloud state recovers after lost local backup; unchanged flush does not create provider churn", async (t) => {
+  const temp = await fs.mkdtemp(path.join(os.tmpdir(), "books-recover-"));
+  t.after(() => fs.rm(temp, { recursive: true, force: true }));
+  const user = path.join(temp, "user"),
+    root = path.join(temp, "cloud");
+  const a = await new Library(user).init();
+  await a.configure(root);
+  const input = path.join(temp, "book.txt");
+  await fs.writeFile(input, "test");
+  const {
+    imported: [id],
+  } = await a.import([input]);
+  await a.save(id, {
+    reading: { progress: 0.6 },
+    mark: { id: "m", type: "bookmark", text: "kept" },
+  });
+  await fs.rm(a.stateFile);
+  const restarted = await new Library(user).init();
+  await restarted.load();
+  assert.equal(restarted.device.books[id].reading.progress, 0.6);
+  await restarted.save(id, { status: { favorite: true } });
+  const file = path.join(
+    root,
+    "reader-state/v1/devices",
+    a.config.deviceId + ".json",
+  );
+  const before = (await fs.stat(file)).mtimeMs;
+  await restarted.flush();
+  assert.equal((await fs.stat(file)).mtimeMs, before);
+  assert.equal(
+    JSON.parse(await fs.readFile(file)).books[id].marks.m.text,
+    "kept",
+  );
+});
+test("declared revision survives delayed body delivery and corrupt snapshots do not erase progress", async (t) => {
+  const temp = await fs.mkdtemp(path.join(os.tmpdir(), "books-delay-"));
+  t.after(() => fs.rm(temp, { recursive: true, force: true }));
+  const root = path.join(temp, "OneDrive 中文");
+  await atomicJson(path.join(root, "catalog.json"), {
+    version: 2,
+    libraryId: "shared",
+    books: [
+      { id: "b", content: { path: "content/b/book.epub", revision: "r" } },
+    ],
+  });
+  await atomicJson(path.join(root, "reader-state/v1/devices/win.json"), {
+    version: 1,
+    books: {
+      b: {
+        reading: {
+          cfi: "epubcfi(/6/2!/4/2/1:0)",
+          contentRevision: "r",
+          progress: 0.5,
+          updatedAt: "2026-10-23T12:00:00Z",
+        },
+      },
+    },
+  });
+  await fs.writeFile(
+    path.join(root, "reader-state/v1/devices/broken.json"),
+    "{",
+  );
+  const library = await new Library(path.join(temp, "user")).init();
+  const data = await library.configure(root);
+  assert.equal(data.books[0].contentRevision, "r");
+  assert.ok(data.books[0].state.reading.cfi);
+  assert.match(data.syncError, /broken/);
+  await assert.rejects(library.read("b"), /ENOENT/);
 });

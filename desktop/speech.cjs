@@ -297,6 +297,7 @@ class Speech {
           file,
           "--file-format=WAVE",
           "--data-format=LEI16@22050",
+          "--",
           text,
         ],
         { timeout: 60000 },
