@@ -22,6 +22,7 @@ async function main() {
   const all = await walk(path.join(root, "docs"));
   const files = [
     path.join(root, "README.md"),
+    path.join(root, "README.en.md"),
     ...all.filter((p) => p.endsWith(".md")),
   ];
   const problems = [];

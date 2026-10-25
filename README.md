@@ -1,120 +1,189 @@
+<div align="center">
+
+<img src="design/icon.svg" width="112" alt="Books+">
+
 # Books+
 
-**把书放进云盘，在 Windows 和 Mac 上接着读。**
+**Apple Books 里的书，在 Windows 上接着读。**
 
-以 Apple Books 的阅读习惯为参考，提供多格式书库、阅读进度同步、在线与离线朗读，以及独立的桌面字幕。
+Books+ 是一个仿照 Apple Books 手感的桌面阅读器。在 Mac 上，它把 Apple Books 里的书、进度和笔记同步到你的云盘；换到 Windows，打开同一个书架，从保存的位置继续。<br>
+读累了，就让它念给你听，字幕挂在桌面上。
 
-[安装与升级](docs/INSTALLATION.md) · [图文使用指南](docs/USER_GUIDE.md) · [云盘与 Mac 同步](docs/SYNC_GUIDE.md) · [全部文档](docs/README.md)
+[![Release](https://img.shields.io/github/v/release/EveningStudy/books-plus?include_prereleases&label=release&color=e87822)](https://github.com/EveningStudy/books-plus/releases)
+![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-262422)
+[![License](https://img.shields.io/badge/license-MIT-8c8986)](LICENSE)
 
-![Books+ 书库：封面、阅读进度、收藏与分类](docs/assets/screenshots/library-grid.png)
+**简体中文** · [English](README.en.md)
 
+[下载](https://github.com/EveningStudy/books-plus/releases) · [使用说明](docs/GUIDE.md) · [常见问题](docs/GUIDE.md#常见问题) · [开发](docs/DEVELOPMENT.md)
 
-## 先看它能做什么
+<br>
 
-| 你想做的事           | Books+ 的入口                                               |
-| -------------------- | ----------------------------------------------------------- |
-| 把本机电子书放到书库 | 右下角 **加入图书**，支持批量选择                           |
-| 换一台电脑继续看     | 两端连接同一云端书库，收到新进度时点 **接着读**             |
-| 调整阅读体验         | **主题与设置**：六个主题、字体、字号、分页 / 滚动、翻页效果 |
-| 记录喜欢的段落       | 选中文字 → **标注**，可附带笔记；工具栏可加书签             |
-| 听书                 | **设置 → 朗读**：Edge 在线、系统离线、可下载的本地模型      |
-| 让字幕留在桌面       | **设置 → 桌面字幕**，独立透明置顶窗口                       |
-| 暂时移走一本书       | 图书更多选项 → **删除图书…**；从 **最近删除** 恢复          |
-| 获取新版             | **设置 → 软件更新**；Windows 支持保存进度后重启安装         |
+<img src="docs/assets/screenshots/library-grid.png" alt="Books+ 书库" width="880">
 
-## 从导入到阅读
+</div>
 
-1. [安装应用](docs/INSTALLATION.md)，打开后在 **设置 → 书库** 选择文件夹。本机空文件夹也可以作为书库。
-2. 点 **加入图书**，选择 EPUB、PDF 或其他支持格式。
-3. 点击封面开始阅读。进度自动保存；书签、批注和分类可在侧栏查找。
+<br>
 
-![双页阅读：正文、进度条和底部朗读控制](docs/assets/screenshots/reader-light.png)
+## 🍎 和 Apple Books 接上
 
-EPUB、KEPUB、PDF 原生阅读；TXT、Markdown、HTML、FB2 内置转换；CBZ / CBT 内置漫画阅读。MOBI、AZW3、DOCX 等需单独安装 Calibre。加密 DRM 文件无法打开；图片书需先 OCR 才能朗读。[查看完整格式与限制](docs/FEATURES.md#格式)
+你不用换掉 Apple Books。在 Mac 上照常用它读书，Books+ 安静地待在菜单栏里，把书和阅读记录同步到云盘。
 
-## 按自己的习惯排版
-
-白天、纸张色或深色阅读，搭配单页 / 双页、分页 / 滚动。目录、全文搜索和批注在同一个阅读窗口里。
+- **书**：Apple Books 里没有 DRM 的 EPUB 和 PDF，自动出现在 Books+ 的书架上。
+- **读到哪儿**：在 Mac 上保存的阅读位置，可以在 Windows 上继续。反过来也行，同一修订的 EPUB 可以把位置交回 Apple Books；有时会停在页首，需要手动核对。
+- **划线和笔记**：书签、高亮、笔记和「已读完」都会一起带过来。
+- **放心**：Books+ 只读 Apple Books 的数据，从不改它的数据库。在 Books+ 里删书，也不会删掉 Apple Books 里的原书。
 
 <table>
   <tr>
-    <td><img src="docs/assets/screenshots/reader-themes.png" alt="阅读主题面板：主题、字号、翻页和字体设置" width="640"></td>
-    <td><img src="docs/assets/screenshots/reader-dark.png" alt="专注主题下的深色阅读页面" width="640"></td>
+    <td><img src="docs/assets/screenshots/mac-sync.png" alt="Mac 上的 Apple Books 同步设置"></td>
+    <td><img src="docs/assets/screenshots/reader-resume.png" alt="接着读"></td>
   </tr>
-  <tr><td align="center">随时调整主题与排版</td><td align="center">专注主题</td></tr>
+  <tr>
+    <td align="center"><sub>在 Mac 上打开 Apple Books 同步</sub></td>
+    <td align="center"><sub>换一台电脑，从刚才那一页接着读</sub></td>
+  </tr>
 </table>
 
-![书签与批注：保留原文并附上自己的笔记](docs/assets/screenshots/reader-bookmarks.png)
+<sub>从 Apple Books 商店买的书带 DRM，没法同步，自己导入的无 DRM EPUB 和 PDF 可以同步。PDF 的位置和笔记目前只能从 Apple Books 导出，不能写回去。细节见 [使用说明](docs/GUIDE.md#mac-与-apple-books)。</sub>
 
-## 同一书库，两台电脑
+## 🎧 听书，字幕就挂在桌面上
 
-Books+ 使用云盘客户端已经同步到本机的文件夹。**在软件中选目录即可，无需在 Books+ 登录云盘。**
+不想盯着屏幕的时候，让 Books+ 念给你听。
 
-![Windows 与 Mac 通过同一云端书库共享正文和阅读记录](docs/assets/diagrams/sync-overview.svg)
+- **联网**：用微软 Edge 的语音，中文、英文、日语、粤语都有，开箱即用。
+- **离线**：用系统自带的语音，或者下载 ZipVoice、Pocket TTS、Kitten 这些本地神经语音模型。CPU 就能跑，不需要显卡，书的内容一个字也不会发出去。
+- **顺手**：可以调语速、设睡眠定时，页面跟着朗读自动翻。
 
-iCloud Drive、OneDrive、Google Drive 已完成 Windows ↔ Mac 的真实跨端导入、进度、书签、删除与恢复测试；Dropbox、坚果云、Syncthing 等具备兼容的文件夹机制，但未做本轮双机实测。网页网盘和只有 API 的服务不能直接连接。[同步配置与实测范围](docs/SYNC_GUIDE.md)
+朗读时，字幕可以从阅读窗口里「飘」出来，变成一个透明、置顶的小窗口。你去写文档、看网页，它就安安静静地待在屏幕一角。用 Edge 语音时，正在读的词还会高亮。锁定后鼠标能直接点穿它，完全不挡事。
 
-![阅读时收到另一设备的新位置，可以主动选择接着读](docs/assets/screenshots/reader-resume.png)
-
-上图用本地隔离书库演示接力提示；真实云盘测试的步骤、失败记录和结果见 [0.5.0 验收报告](docs/TESTING-0.5.0.md)。写入文件夹后仍需等待云盘上传与另一端下载，延迟取决于云盘客户端。
-
-### Mac 与 Apple Books
-
-Mac 内置 **只同步 / 只阅读 / 两者都用** 三种模式。可将 Apple Books 的无 DRM EPUB / PDF、进度和批注导出到云库；同修订 EPUB 位置可经 Books 深链接回写，存在页首对齐与人工核对边界。PDF 进度、批注和完成状态不反向回写。没有宣称 iPhone 已验证。[查看 Mac 图文说明](docs/SYNC_GUIDE.md#mac-与-apple-books)
-
-![真实 Mac 应用的 Apple Books 同步设置，示例使用只阅读模式](docs/assets/screenshots/mac-sync.png)
-
-## 朗读与桌面字幕
-
-Edge 适合联网朗读；系统语音无需下载模型；ZipVoice、Pocket TTS、Kitten 支持本机 CPU 推理。下载模型时可查看大小、来源和许可。**Edge 会将朗读句子发送到微软服务；本地引擎不发送正文。**
+<p align="center">
+  <img src="docs/assets/screenshots/desktop-subtitles.png" alt="桌面字幕窗口" width="720">
+</p>
 
 <table>
   <tr>
-    <td><img src="docs/assets/screenshots/settings-models.png" alt="本地神经语音：模型、音色、质量和线程设置" width="640"></td>
-    <td><img src="docs/assets/screenshots/settings-subtitles.png" alt="桌面字幕预览与字号、背景、描边设置" width="640"></td>
+    <td><img src="docs/assets/screenshots/settings-models.png" alt="本地语音模型"></td>
+    <td><img src="docs/assets/screenshots/settings-subtitles.png" alt="桌面字幕设置"></td>
   </tr>
-  <tr><td align="center">按语言与听感选择语音</td><td align="center">自定义独立桌面字幕</td></tr>
+  <tr>
+    <td align="center"><sub>挑一个喜欢的声音</sub></td>
+    <td align="center"><sub>字号、颜色、描边、行数都能调</sub></td>
+  </tr>
 </table>
 
-[朗读与字幕操作步骤](docs/USER_GUIDE.md#朗读与桌面字幕) · [模型参数、隐私与快捷键](docs/FEATURES.md#朗读与字幕)
+## 还有这些
 
-## 可恢复的删除与应用更新
+<table>
+<tr>
+<td width="50%" valign="top">
 
-删除会同步到同一书库的 0.5.0 客户端。原文件、进度和批注保留，在 **最近删除** 中可恢复；不会删除 Apple Books 原书，也不会释放正文空间。
+### ☁️ 书库就是一个文件夹
+
+不用注册账号，也没有服务器。iCloud Drive、OneDrive、Google Drive 里的任意文件夹都能当书库，两台电脑选同一个，书和进度就对上了。
+
+</td>
+<td width="50%" valign="top">
+
+### 🎨 舒服的排版
+
+六个主题，字体、字号、行距随便调。单页或双页、分页或滚动都行，翻页可以选拟真卷页。
+
+</td>
+</tr>
+<tr>
+<td valign="top">
+
+### 🖍️ 书签、高亮和笔记
+
+选中文字就能标注，顺手写几句笔记。全文搜索和章节目录都在侧栏里。
+
+</td>
+<td valign="top">
+
+### 📖 不只是 EPUB
+
+PDF、TXT、Markdown、漫画都能直接打开。装上 Calibre 之后，MOBI、AZW3、DOCX 也没问题。
+
+</td>
+</tr>
+</table>
+
+## 看看长什么样
 
 <table>
   <tr>
-    <td><img src="docs/assets/screenshots/delete-confirm.png" alt="删除确认明确说明保留内容和跨端影响" width="640"></td>
-    <td><img src="docs/assets/screenshots/settings-updates.png" alt="软件更新页：当前版本、自动检查和自动下载开关" width="640"></td>
+    <td><img src="docs/assets/screenshots/reader-light.png" alt="双页阅读"></td>
+    <td><img src="docs/assets/screenshots/reader-dark.png" alt="深色主题"></td>
   </tr>
-  <tr><td align="center">删除前确认，随时恢复</td><td align="center">在应用中管理更新</td></tr>
+  <tr>
+    <td align="center"><sub>白天，双页</sub></td>
+    <td align="center"><sub>晚上，深色主题</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/assets/screenshots/reader-themes.png" alt="主题与排版设置"></td>
+    <td><img src="docs/assets/screenshots/reader-bookmarks.png" alt="书签与笔记"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>主题和排版</sub></td>
+    <td align="center"><sub>书签与笔记</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/assets/screenshots/mac-library.png" alt="Mac 版书库"></td>
+    <td><img src="docs/assets/screenshots/reader-pdf.png" alt="PDF 阅读"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Mac 版</sub></td>
+    <td align="center"><sub>PDF 保持原版面</sub></td>
+  </tr>
 </table>
 
-Windows 提供安装版与便携版，便携版更新会迁移为安装版。当前 Mac 包为本地签名，支持版本检查；自动安装仍需 Developer ID 与正式发行配置。旧版首次需要手动安装带更新器的版本。[删除与恢复](docs/USER_GUIDE.md#删除与恢复) · [安装与更新](docs/INSTALLATION.md)
+## 快速开始
 
-## 验证与发行状态
+1. 到 [Releases](https://github.com/EveningStudy/books-plus/releases) 下载安装包。Windows 选 `BooksPlus-Setup-x.y.z-x64.exe`，Apple Silicon 的 Mac 选 `.dmg`。
+2. 打开 Books+，进入 **设置 → 书库**，选一个文件夹。想在两台电脑之间同步，就选云盘里的文件夹。
+3. 点右下角的 **加入图书**，挑几本书，点封面开始读。
 
-0.5.0已取得以下证据：
+详细步骤、同步设置和常见问题，都写在 [使用说明](docs/GUIDE.md) 里。
 
-- Windows x64 与 Apple Silicon Mac 各 **71 项单元 / 协议测试通过**。
-- 两台真实打包应用完成 EPUB / PDF / TXT / Markdown / FB2 阅读，以及三种云盘的进度接力、删除和恢复。
-- Windows 通过真实安装器完成 QA 版本 **0.4.99 → 0.5.0** 升级，校验失败会拒绝安装，正确更新后保留书籍与记录。
+## 支持的格式
 
-**正式发行仍需完成 Mac Developer ID 签名与公证、GitHub 正式更新源发布及线上升级验收。** Windows 包尚未签名；Intel Mac、iPhone、多日压力和全部格式未完整覆盖。已有测试通过不代表没有问题。[完整测试记录](docs/TESTING-0.5.0.md) · [发行检查](docs/RELEASE.md)
+|                                                         | 格式                     |
+| ------------------------------------------------------- | ------------------------ |
+| 直接打开                                                | EPUB、KEPUB、PDF         |
+| 自动转换                                                | TXT、Markdown、HTML、FB2 |
+| 漫画                                                    | CBZ、CBT                 |
+| 装了 [Calibre](https://calibre-ebook.com/download) 之后 | MOBI、AZW3、DOCX、RTF 等 |
 
-## 开发与文档
+有 DRM 加密的书打不开。扫描版 PDF 能看，但没有文字层，所以没法朗读。
+
+## 云盘
+
+只要云盘有桌面客户端，能把文件同步成本地文件夹，基本都能用。我们在 Windows 和 Mac 之间实际测过 **iCloud Drive、OneDrive 和 Google Drive**。Dropbox、坚果云、Syncthing 原理一样，但还没逐个测过。只有网页版的网盘用不了。
+
+<p align="center">
+  <img src="docs/assets/diagrams/sync-overview.svg" alt="Windows、云盘和 Mac 之间的同步关系" width="720">
+</p>
+
+## 隐私
+
+- Books+ 没有服务器，也不需要账号。书和阅读记录只在你的电脑和你自己的云盘里。
+- 用 Edge 在线朗读时，正在读的句子会发给微软的语音服务。不想这样，可以换成系统语音或本地模型，它们完全离线。
+- Mac 版读取 Apple Books 的数据时只读，不会改动 Apple Books 的数据库。
+
+## 自己构建
+
+需要 Node.js 24 以上，Mac 还需要 Xcode Command Line Tools。
 
 ```sh
 npm ci
 npm run dev
-npm test
-npm run build
 ```
 
-开发需 Node.js 24+；Mac 编译原生桥还需 Xcode Command Line Tools。打包后的应用无需安装 Node 或 Python。
+打包、测试和书库格式等细节见 [开发文档](docs/DEVELOPMENT.md)。
 
-[开发与构建](docs/DEVELOPMENT.md) · [书库协议 v2](docs/CLOUD_LIBRARY.md) · [进度协议 v1](docs/SYNC.md) · [Mac 技术说明](docs/MAC.md) · [文档目录](docs/README.md)
+## 许可
 
-## 开源
+Books+ 自己的代码使用 [MIT](LICENSE) 许可。用到的第三方库、语音模型和 Calibre 各有各的许可，列在 [THIRD_PARTY.md](THIRD_PARTY.md) 里。
 
-自有代码使用 [MIT](LICENSE)。第三方运行库、语音模型和 Calibre 适用各自许可，见 [依赖说明](THIRD_PARTY.md)。本项目独立于 Apple 与 Microsoft；仓库文档中的示例书籍、封面和正文为原创演示内容。
+本项目与 Apple、Microsoft 无关。截图里的书名、封面和正文都是专门做的示例。
