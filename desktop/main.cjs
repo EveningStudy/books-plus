@@ -1,3 +1,4 @@
+const { translate, translateMessage } = require("./i18n.mjs");
 const {
   app,
   BrowserWindow,
@@ -20,6 +21,7 @@ const { Library } = require("./library.cjs");
 const { Speech } = require("./speech.cjs");
 const { Models } = require("./models.cjs");
 const { CloudFiles } = require("./cloud-files.cjs");
+const { Updates, updateMode, RELEASES } = require("./updates.cjs");
 const {
   AppleBooksSync,
   NativeBooks,
@@ -55,10 +57,15 @@ let main,
   locked = false;
 const files = new Map();
 let appleSync,
+  updates,
   tray,
   quitting = false,
   quitReady = false;
 const isMac = process.platform === "darwin";
+const language = () =>
+  library?.config.settings?.language === "en" ? "en" : "zh";
+const t = (key, values = []) => translate(language(), key, values);
+const tm = (message) => translateMessage(language(), message);
 function showMain(settings = false) {
   if (!library || quitting) return;
   if (!main) createMain(settings ? "mac" : undefined);
@@ -70,38 +77,85 @@ function showMain(settings = false) {
     main.webContents.send("app:settings", "mac");
 }
 app.on("second-instance", () => showMain());
+function updateApplicationMenu() {
+  Menu.setApplicationMenu(
+    Menu.buildFromTemplate([
+      ...(process.platform === "darwin" ? [{ role: "appMenu" }] : []),
+      {
+        label: t("图书"),
+        submenu: [
+          {
+            label: t("打开书库文件夹…"),
+            click: () => main?.webContents.send("app:choose"),
+          },
+          { type: "separator" },
+          { role: "quit", label: t("退出") },
+        ],
+      },
+      {
+        label: t("编辑"),
+        submenu: [
+          { role: "undo", label: t("撤销") },
+          { role: "redo", label: t("重做") },
+          { type: "separator" },
+          { role: "cut", label: t("剪切") },
+          { role: "copy", label: t("复制") },
+          { role: "paste", label: t("粘贴") },
+          { role: "selectAll", label: t("全选") },
+        ],
+      },
+      {
+        label: t("显示"),
+        submenu: [
+          { role: "togglefullscreen", label: t("全屏") },
+          {
+            label: t("桌面字幕"),
+            accelerator: "CommandOrControl+Shift+D",
+            click: () => showOverlay(!overlay?.isVisible()),
+          },
+          {
+            label: t("锁定 / 解锁字幕"),
+            accelerator: "CommandOrControl+Shift+L",
+            click: () => setLocked(!locked),
+          },
+          ...(app.isPackaged ? [] : [{ role: "toggleDevTools" }]),
+        ],
+      },
+    ]),
+  );
+}
 function updateTray() {
   if (!tray) return;
   const status = appleSync?.getStatus();
   tray.setToolTip(
-    `Books+ · ${status?.running ? "正在同步" : status?.error ? "同步需要处理" : status?.enabled ? "Apple Books 同步" : "阅读器"}`,
+    `Books+ · ${status?.running ? t("正在同步") : status?.error ? t("同步需要处理") : status?.enabled ? t("Apple Books 同步") : t("阅读器")}`,
   );
   tray.setContextMenu(
     Menu.buildFromTemplate([
       {
         label:
-          status?.error ||
+          (status?.error && tm(status.error)) ||
           (status?.running
-            ? "正在同步…"
+            ? t("正在同步…")
             : status?.enabled
-              ? `Apple Books · ${status?.mappings?.length || 0} 本已映射`
-              : "Apple Books 同步已停用"),
+              ? t("Apple Books · {0} 本已映射", [status?.mappings?.length || 0])
+              : t("Apple Books 同步已停用")),
         enabled: false,
       },
-      { label: "打开 Books+", click: () => showMain() },
-      { label: "设置与同步状态…", click: () => showMain(true) },
+      { label: t("打开 Books+"), click: () => showMain() },
+      { label: t("设置与同步状态…"), click: () => showMain(true) },
       {
-        label: "选择云盘书库…",
+        label: t("选择云盘书库…"),
         click: () => chooseLibrary().catch(showNativeError),
       },
       {
-        label: "立即同步",
+        label: t("立即同步"),
         enabled: !!status?.enabled,
         click: () => appleSync.sync(),
       },
       { type: "separator" },
       {
-        label: "退出 Books+",
+        label: t("退出 Books+"),
         accelerator: "Command+Q",
         click: () => app.quit(),
       },
@@ -109,11 +163,11 @@ function updateTray() {
   );
 }
 function showNativeError(error) {
-  dialog.showErrorBox("Books+", error.message);
+  dialog.showErrorBox("Books+", tm(error.message));
 }
 async function chooseLibrary() {
   const result = await dialog.showOpenDialog({
-    title: "选择云端书库文件夹",
+    title: t("选择云端书库文件夹"),
     properties: ["openDirectory", "createDirectory"],
   });
   if (result.canceled) return null;
@@ -128,9 +182,9 @@ async function chooseLibrary() {
   }
 }
 async function setMacSettings(patch) {
-  if (!isMac) throw Error("此设置仅适用于 macOS");
+  if (!isMac) throw Error(t("此设置仅适用于 macOS"));
   if (!patch || !["sync", "reader", "both"].includes(patch.mode))
-    throw Error("请选择运行模式");
+    throw Error(t("请选择运行模式"));
   const mac = {
     mode: patch.mode,
     login: !!patch.login,
@@ -312,7 +366,7 @@ function handle(channel, fn, overlayAllowed = false) {
       event.sender !== main?.webContents &&
       !(overlayAllowed && event.sender === overlay?.webContents)
     )
-      throw Error("不允许此窗口执行该操作");
+      throw Error(t("不允许此窗口执行该操作"));
     return fn(...args);
   });
 }
@@ -337,11 +391,12 @@ app
     if (isMac && !library.config.settings?.mac?.mode) {
       const result = await dialog.showMessageBox({
         type: "question",
-        title: "欢迎使用 Books+",
-        message: "你想怎样使用 Books+？",
-        detail:
+        title: t("欢迎使用 Books+"),
+        message: t("你想怎样使用 Books+？"),
+        detail: t(
           "只同步：登录后在菜单栏同步 Apple Books，不显示 Dock 图标。\n只阅读：使用阅读器、朗读与字幕。\n两者都用：阅读器与后台同步同时运行。\n同步模式会自动导入新的云端 EPUB/PDF；同修订 EPUB 的新进度会通过深链接回写，可能打开 Books。可在设置中关闭自动位置回写。",
-        buttons: ["只同步", "只阅读", "两者都用", "稍后"],
+        ),
+        buttons: [t("只同步"), t("只阅读"), t("两者都用"), t("稍后")],
         cancelId: 3,
         defaultId: 2,
       });
@@ -419,6 +474,25 @@ app
         : new Response("Not found", { status: 404 });
     });
     handle("library:load", () => library.load());
+    const mode = await updateMode(app);
+    updates = new Updates({
+      updater: ["automatic", "migration"].includes(mode)
+        ? require("electron-updater").autoUpdater
+        : null,
+      version: app.getVersion(),
+      mode,
+      preferences: () => library.config.settings?.updates || {},
+      notify: (status) => main?.webContents.send("updates:status", status),
+    });
+    handle("updates:status", () => updates.status());
+    handle("updates:check", () => updates.check());
+    handle("updates:download", () => updates.download());
+    handle("updates:install", () => {
+      updates.requestInstall();
+      app.quit();
+    });
+    handle("updates:page", () => shell.openExternal(RELEASES));
+    updates.start();
     handle("library:choose", chooseLibrary);
     handle("mac:status", macStatus);
     handle("mac:settings", setMacSettings);
@@ -435,10 +509,10 @@ app
     handle("library:import", async () => {
       const { BUILTIN, CALIBRE } = require("./formats.cjs");
       const result = await dialog.showOpenDialog(main, {
-        title: "加入图书到云端书库",
+        title: t("加入图书到云端书库"),
         properties: ["openFile", "multiSelections"],
         filters: [
-          { name: "电子书与文档", extensions: [...BUILTIN, ...CALIBRE] },
+          { name: t("电子书与文档"), extensions: [...BUILTIN, ...CALIBRE] },
         ],
       });
       return result.canceled ? null : library.import(result.filePaths);
@@ -451,7 +525,7 @@ app
     );
     handle("formats:pick", async () => {
       const result = await dialog.showOpenDialog(main, {
-        title: "选择 Calibre ebook-convert 程序",
+        title: t("选择 Calibre ebook-convert 程序"),
         properties: ["openFile"],
       });
       return result.canceled ? null : result.filePaths[0];
@@ -462,6 +536,11 @@ app
     handle("book:closed", (id) => library.closed(id));
     handle("book:offline", (id, keep) => library.offline(id, !!keep));
     handle("book:release", (id) => library.release(id));
+    handle("book:delete", async (id, deleted) => {
+      const sync = await library.setDeleted(id, deleted);
+      appleSync?.sync().catch(() => {});
+      return { data: await library.load(), sync };
+    });
     handle("storage:sweep", () => library.sweep());
     handle("models:list", () => models.list());
     handle("models:install", (id) => models.install(id));
@@ -472,7 +551,7 @@ app
         (m) => m.id === id,
       );
       if (!model || !["source", "license"].includes(kind))
-        throw Error("未知模型页面");
+        throw Error(t("未知模型页面"));
       return shell.openExternal(
         kind === "source" ? model.source : model.licenseUrl,
       );
@@ -489,7 +568,7 @@ app
         x + width > bounds.width + 1 ||
         y + height > bounds.height + 1
       )
-        throw Error("无效的阅读区域");
+        throw Error(t("无效的阅读区域"));
       return (
         await main.webContents.capturePage({
           x: Math.round(x),
@@ -509,8 +588,18 @@ app
         : url;
     });
     handle("book:save", (id, patch) => library.save(id, patch));
+    handle("locale:get", () => language(), true);
+    handle("locale:set", async (value) => {
+      if (value !== "zh" && value !== "en") throw Error(t("语言设置无效"));
+      await library.settings({ language: value });
+      updateApplicationMenu();
+      updateTray();
+      for (const window of BrowserWindow.getAllWindows())
+        window.webContents.send("locale:changed", value);
+      return value;
+    });
     handle("settings:save", (patch) => {
-      if (patch?.mac) throw Error("请使用 Mac 模式设置接口");
+      if (patch?.mac) throw Error(t("请使用 Mac 模式设置接口"));
       return library.settings(patch);
     });
     handle("speech:voices", () => speech.voices());
@@ -522,7 +611,9 @@ app
     handle("speech:pick", async (kind) => {
       const result = await dialog.showOpenDialog(main, {
         title:
-          kind === "model" ? "选择 Piper ONNX 音色模型" : "选择 Piper 程序",
+          kind === "model"
+            ? t("选择 Piper ONNX 音色模型")
+            : t("选择 Piper 程序"),
         properties: ["openFile"],
         ...(kind === "model"
           ? { filters: [{ name: "ONNX", extensions: ["onnx"] }] }
@@ -554,51 +645,7 @@ app
       return main.isFullScreen();
     });
     handle("window:finish-close", () => main?.finishClose());
-    Menu.setApplicationMenu(
-      Menu.buildFromTemplate([
-        ...(process.platform === "darwin" ? [{ role: "appMenu" }] : []),
-        {
-          label: "图书",
-          submenu: [
-            {
-              label: "打开书库文件夹…",
-              click: () => main?.webContents.send("app:choose"),
-            },
-            { type: "separator" },
-            { role: "quit", label: "退出" },
-          ],
-        },
-        {
-          label: "编辑",
-          submenu: [
-            { role: "undo" },
-            { role: "redo" },
-            { type: "separator" },
-            { role: "cut" },
-            { role: "copy" },
-            { role: "paste" },
-            { role: "selectAll" },
-          ],
-        },
-        {
-          label: "显示",
-          submenu: [
-            { role: "togglefullscreen", label: "全屏" },
-            {
-              label: "桌面字幕",
-              accelerator: "CommandOrControl+Shift+D",
-              click: () => showOverlay(!overlay?.isVisible()),
-            },
-            {
-              label: "锁定 / 解锁字幕",
-              accelerator: "CommandOrControl+Shift+L",
-              click: () => setLocked(!locked),
-            },
-            ...(app.isPackaged ? [] : [{ role: "toggleDevTools" }]),
-          ],
-        },
-      ]),
-    );
+    updateApplicationMenu();
     globalShortcut.register("CommandOrControl+Shift+L", () =>
       setLocked(!locked),
     );
@@ -645,6 +692,7 @@ app.on("before-quit", (event) => {
   event.preventDefault();
   if (quitting) return;
   quitting = true;
+  updates?.stop();
   appleSync?.stop();
   (async () => {
     if (main && !main.isDestroyed()) {
@@ -652,10 +700,19 @@ app.on("before-quit", (event) => {
       main.close();
       await closed;
     }
-    await Promise.race([
-      Promise.all([appleSync?.idle(), library?.queue]),
-      new Promise((resolve) => setTimeout(resolve, 5000)),
+    const pending = Promise.all([
+      appleSync?.idle(),
+      library?.queue,
+      library?.importQueue,
+      library?.downloadQueue,
+      library?.settingsQueue,
     ]);
+    if (updates?.installRequested) await pending;
+    else
+      await Promise.race([
+        pending,
+        new Promise((resolve) => setTimeout(resolve, 5000)),
+      ]);
     if (library?.stateFile && library.device.updatedAt)
       await library.flush().catch(() => {});
     speech?.close();
@@ -663,7 +720,7 @@ app.on("before-quit", (event) => {
     globalShortcut.unregisterAll();
     tray?.destroy();
     quitReady = true;
-    app.quit();
+    if (!updates?.applyInstall()) app.quit();
   })().catch(() => {
     quitReady = true;
     app.quit();

@@ -1,3 +1,5 @@
+import { t, tm, useLocale } from "../i18n";
+import { LanguageSwitcher } from "./LanguageSwitcher";
 import {
   lazy,
   Suspense,
@@ -85,6 +87,7 @@ export function Reader({
   onChange: (patch: Partial<AppSettings>) => void;
   onError: (message: string) => void;
 }) {
+  useLocale();
   const [bytes, setBytes] = useState<Uint8Array | null>(null);
   const [ready, setReady] = useState(false);
   const [fatal, setFatal] = useState("");
@@ -361,7 +364,7 @@ export function Reader({
     try {
       await engine.current?.navigate(target);
     } catch (e) {
-      onError(`此位置无法定位：${String(e)}`);
+      onError(t("此位置无法定位：{0}", [String(e)]));
     }
   };
   const seek = async (progress: number) => {
@@ -382,8 +385,8 @@ export function Reader({
           text:
             toc.find((t) => narration.sentence?.href === t.href)?.label ||
             (page
-              ? `第 ${page} 页`
-              : `${Math.round(location.progress * 100)}% 的位置`),
+              ? t("第 {0} 页", [page])
+              : t("{0}% 的位置", [Math.round(location.progress * 100)])),
           type: "bookmark",
         },
       })
@@ -440,10 +443,10 @@ export function Reader({
           }}
         >
           <ArrowLeft size={18} />
-          <span>图书</span>
+          <span>{t("图书")}</span>
         </button>
         <IconButton
-          label="目录与批注"
+          label={t("目录与批注")}
           active={!!drawer}
           onClick={() => {
             setDrawer(drawer ? null : "contents");
@@ -456,7 +459,7 @@ export function Reader({
           {book.title}
         </div>
         <IconButton
-          label="搜索书中内容"
+          label={t("搜索书中内容")}
           active={drawer === "search"}
           onClick={() => {
             setDrawer(drawer === "search" ? null : "search");
@@ -466,7 +469,7 @@ export function Reader({
           <Search />
         </IconButton>
         <IconButton
-          label="主题与设置"
+          label={t("主题与设置")}
           active={themeOpen}
           onClick={() => {
             setThemeOpen(!themeOpen);
@@ -475,24 +478,30 @@ export function Reader({
         >
           <span className="aa">Aa</span>
         </IconButton>
-        <IconButton label="添加书签" onClick={addBookmark} disabled={!ready}>
+        <IconButton
+          label={t("添加书签")}
+          onClick={addBookmark}
+          disabled={!ready}
+        >
           <Bookmark />
         </IconButton>
-        <IconButton label="朗读设置" onClick={() => onSettings("voice")}>
+        <IconButton label={t("朗读设置")} onClick={() => onSettings("voice")}>
           <Headphones />
         </IconButton>
         <IconButton
-          label="全屏阅读"
+          label={t("全屏阅读")}
           onClick={() => window.reader?.fullscreen()}
         >
           <Maximize2 size={17} />
         </IconButton>
+        <LanguageSwitcher />
       </header>
       {remoteReading ? (
         <div className="remote-reading" role="status">
           <span>
-            其他设备有更新的阅读位置（{Math.round(remoteReading.progress * 100)}
-            %）
+            {t("其他设备有更新的阅读位置（{0}%）", [
+              Math.round(remoteReading.progress * 100),
+            ])}
           </span>
           <button
             onClick={async () => {
@@ -512,7 +521,7 @@ export function Reader({
               setViewGeneration((n) => n + 1);
             }}
           >
-            接着读
+            {t("接着读")}
           </button>
           <button
             onClick={() => {
@@ -521,7 +530,7 @@ export function Reader({
               setRemoteReading(null);
             }}
           >
-            留在此处
+            {t("留在此处")}
           </button>
         </div>
       ) : null}
@@ -533,15 +542,15 @@ export function Reader({
                 className={drawer === "contents" ? "selected" : ""}
                 onClick={() => setDrawer("contents")}
               >
-                目录
+                {t("目录")}
               </button>
               <button
                 className={drawer === "marks" ? "selected" : ""}
                 onClick={() => setDrawer("marks")}
               >
-                书签与批注
+                {t("书签与批注")}
               </button>
-              <IconButton label="关闭侧栏" onClick={() => setDrawer(null)}>
+              <IconButton label={t("关闭侧栏")} onClick={() => setDrawer(null)}>
                 <X size={16} />
               </IconButton>
             </div>
@@ -559,7 +568,7 @@ export function Reader({
                       )
                     }
                   >
-                    {item.label}
+                    {book.format === "pdf" ? tm(item.label) : item.label}
                   </button>
                 ))}
               </div>
@@ -571,14 +580,14 @@ export function Reader({
                       <button onClick={() => navigate(mark)}>
                         <small>
                           {mark.imported ? "Apple Books · " : ""}
-                          {mark.type === "bookmark" ? "书签" : "标注"}
+                          {mark.type === "bookmark" ? t("书签") : t("标注")}
                         </small>
-                        <p>{mark.text || "此处的书签"}</p>
+                        <p>{mark.text || t("此处的书签")}</p>
                         {mark.note ? <em>{mark.note}</em> : null}
                       </button>
                       {!mark.imported ? (
                         <IconButton
-                          label="删除此记录"
+                          label={t("删除此记录")}
                           onClick={() =>
                             latestSave
                               .current(book.id, {
@@ -594,7 +603,7 @@ export function Reader({
                   ))
                 ) : (
                   <p className="drawer-empty">
-                    还没有书签或批注。选中文字可以添加标注。
+                    {t("还没有书签或批注。选中文字可以添加标注。")}
                   </p>
                 )}
               </div>
@@ -604,22 +613,27 @@ export function Reader({
                   <Search size={16} />
                   <input
                     autoFocus
-                    aria-label="搜索书中内容"
-                    placeholder="搜索书中内容"
+                    aria-label={t("搜索书中内容")}
+                    placeholder={t("搜索书中内容")}
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                   />
                 </label>
                 <small>
                   {searching
-                    ? "正在搜索…"
+                    ? t("正在搜索…")
                     : query
-                      ? `${hits.length} 个结果${hits.length >= 100 ? "（最多显示 100 个）" : ""}`
-                      : "在整本书中查找文字"}
+                      ? t("{0} 个结果{1}", [
+                          hits.length,
+                          hits.length >= 100 ? t("（最多显示 100 个）") : "",
+                        ])
+                      : t("在整本书中查找文字")}
                 </small>
                 {hits.map((hit, i) => (
                   <button key={i} onClick={() => navigate(hit)}>
-                    {hit.page ? <small>第 {hit.page} 页</small> : null}
+                    {hit.page ? (
+                      <small>{t("第 {0} 页", [hit.page])}</small>
+                    ) : null}
                     {hit.excerpt}
                   </button>
                 ))}
@@ -634,9 +648,9 @@ export function Reader({
           {fatal ? (
             <div className="empty-state error">
               <BookOpen size={40} />
-              <h2>无法打开这本书</h2>
-              <p>{fatal}</p>
-              <button onClick={onClose}>返回书库</button>
+              <h2>{t("无法打开这本书")}</h2>
+              <p>{tm(fatal)}</p>
+              <button onClick={onClose}>{t("返回书库")}</button>
             </div>
           ) : bytes ? (
             book.format === "pdf" ? (
@@ -644,7 +658,7 @@ export function Reader({
                 fallback={
                   <div className="reader-loading">
                     <LoaderCircle className="spin" />
-                    正在载入 PDF 阅读器…
+                    {t("正在载入 PDF 阅读器…")}
                   </div>
                 }
               >
@@ -694,22 +708,22 @@ export function Reader({
           ) : (
             <div className="reader-loading">
               <LoaderCircle className="spin" size={28} />
-              <p>正在从云端打开图书…</p>
-              <small>仅在云端的文件首次打开需要下载</small>
+              <p>{t("正在从云端打开图书…")}</p>
+              <small>{t("仅在云端的文件首次打开需要下载")}</small>
             </div>
           )}
           {ready ? (
             <>
               <button
                 className="page-arrow previous"
-                aria-label="上一页"
+                aria-label={t("上一页")}
                 onClick={() => turnPage(-1)}
               >
                 <ChevronLeft />
               </button>
               <button
                 className="page-arrow next"
-                aria-label="下一页"
+                aria-label={t("下一页")}
                 onClick={() => turnPage(1)}
               >
                 <ChevronRight />
@@ -735,23 +749,26 @@ export function Reader({
             {selection.text.length > 55 ? "…" : ""}
           </span>
           <input
-            aria-label="标注笔记"
-            placeholder="添加笔记（可选）"
+            aria-label={t("标注笔记")}
+            placeholder={t("添加笔记（可选）")}
             value={note}
             onChange={(e) => setNote(e.target.value)}
           />
           <button className="primary" onClick={saveHighlight}>
-            标注
+            {t("标注")}
           </button>
-          <IconButton label="取消选中" onClick={() => setSelection(null)}>
+          <IconButton label={t("取消选中")} onClick={() => setSelection(null)}>
             <X size={16} />
           </IconButton>
         </div>
       ) : null}
       <div className="reading-progress">
-        <span>{location.label || (ready ? "阅读位置已恢复" : "正在载入")}</span>
+        <span>
+          {(location.label && tm(location.label)) ||
+            (ready ? t("阅读位置已恢复") : t("正在载入"))}
+        </span>
         <input
-          aria-label="阅读进度"
+          aria-label={t("阅读进度")}
           type="range"
           min={0}
           max={1000}
@@ -779,19 +796,23 @@ export function Reader({
         <button className="voice-selector" onClick={() => onSettings("voice")}>
           <Headphones size={16} />
           <span>
-            {voices.find(
-              (v) =>
-                v.id === voice.voice &&
-                v.engine === voice.engine &&
-                (v.engine !== "neural" || v.modelId === voice.modelId),
-            )?.name ||
-              (voice.engine === "piper" ? "Piper 本地语音" : "选择朗读声音")}
+            {t(
+              voices.find(
+                (v) =>
+                  v.id === voice.voice &&
+                  v.engine === voice.engine &&
+                  (v.engine !== "neural" || v.modelId === voice.modelId),
+              )?.name || "",
+            ) ||
+              (voice.engine === "piper"
+                ? t("Piper 本地语音")
+                : t("选择朗读声音"))}
           </span>
           <Settings2 size={14} />
         </button>
         <div className="playback-controls">
           <IconButton
-            label="上一句"
+            label={t("上一句")}
             disabled={!ready}
             onClick={() => narration.skip(-1)}
           >
@@ -801,10 +822,10 @@ export function Reader({
             className="play-button"
             aria-label={
               narration.loading
-                ? "取消语音合成"
+                ? t("取消语音合成")
                 : narration.playing
-                  ? "暂停朗读"
-                  : "开始朗读"
+                  ? t("暂停朗读")
+                  : t("开始朗读")
             }
             disabled={!ready}
             onClick={() =>
@@ -820,7 +841,7 @@ export function Reader({
             )}
           </button>
           <IconButton
-            label="下一句"
+            label={t("下一句")}
             disabled={!ready}
             onClick={() => narration.skip(1)}
           >
@@ -829,7 +850,7 @@ export function Reader({
         </div>
         <div className="narration-tools">
           <select
-            aria-label="快捷语速"
+            aria-label={t("快捷语速")}
             value={voice.rate}
             onChange={(e) =>
               onChange({ voice: { ...voice, rate: Number(e.target.value) } })
@@ -858,14 +879,14 @@ export function Reader({
           </select>
           <button
             className="subtitle-settings-button"
-            aria-label="桌面字幕设置"
+            aria-label={t("桌面字幕设置")}
             onClick={() => onSettings("subtitles")}
           >
             <Captions size={18} />
-            <span>桌面字幕</span>
+            <span>{t("桌面字幕")}</span>
           </button>
           <Switch
-            label="显示桌面字幕"
+            label={t("显示桌面字幕")}
             checked={overlay}
             onChange={(value) => {
               window.reader?.showOverlay(value);
@@ -878,11 +899,11 @@ export function Reader({
         <div className="now-speaking" title={narration.sentence.text}>
           <span>
             {narration.loading
-              ? "正在合成"
+              ? t("正在合成")
               : narration.playing
-                ? "正在朗读"
-                : "已暂停"}{" "}
-            · {narration.timing === "word" ? "逐词同步" : "逐句同步"}
+                ? t("正在朗读")
+                : t("已暂停")}{" "}
+            · {narration.timing === "word" ? t("逐词同步") : t("逐句同步")}
           </span>
           <p>{narration.sentence.text}</p>
         </div>

@@ -1,5 +1,9 @@
 # Books+ for macOS
 
+[文档首页](README.md) · [Mac 图文设置](SYNC_GUIDE.md#mac-与-apple-books) · [安装与升级](INSTALLATION.md) · [0.5.0 验收](TESTING-0.5.0.md)
+
+![真实 Mac 客户端中的同步设置，隔离示例为只阅读模式](assets/screenshots/mac-sync.png)
+
 ## 启动与模式
 
 macOS 13+；本次构建及验收为 Apple Silicon。打开 `Books+.app`，首次启动用原生对话框选择：
@@ -111,4 +115,8 @@ FSEvents 合并最长约 1.5 秒，连续事件不会无限延期；周期运行
 
 支持任意可读写的云盘本地同步目录。两端应连接同一个 `catalog.json` / `libraryId`，而非分别初始化空目录；平台差别集中在占位下载、离线固定和释放空间。
 
-本轮 58 项测试通过；详见 [0.4.0 测试报告](TESTING-0.4.0.md)。上节 47 项是初版 Mac 实现的历史验收数量。用户已授权 0.4.0 验收后推送代码；私人资料不进入 Git。
+0.4.0 当时 58 项测试通过；详见 [0.4.0 测试报告](TESTING-0.4.0.md)。上节 47 项是初版 Mac 实现的历史验收数量。
+
+## 0.5.0 当前验收
+
+Windows 与 Apple Silicon Mac 各 71 项测试通过，真实 Google Drive、iCloud、OneDrive 双机传输和两台打包阅读器接力、删除恢复均已完成。Mac DMG / ZIP 已构建，并通过本地签名完整性检查，仍无 Developer ID 与公证；正式源升级与 Intel / iPhone 不在已完成范围。详细结果、失败记录和发行条件见 [0.5.0 报告](TESTING-0.5.0.md)。

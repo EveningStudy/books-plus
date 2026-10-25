@@ -1,5 +1,9 @@
 # Reader state v1
 
+[文档首页](README.md) · [图文同步指南](SYNC_GUIDE.md) · [云端书库 v2](CLOUD_LIBRARY.md)
+
+![共享书库状态与本机配置的边界](assets/diagrams/data-locations.svg)
+
 `Books Export/reader-state/v1/devices/<uuid>.json` 是 UTF-8 JSON。每个安装只写自己持久的 `deviceId`。原导出器的输入文件完全只读。
 
 ```json
@@ -55,6 +59,16 @@ Mac 阅读器与内置 Apple Books 同步服务已使用本格式。Apple Books 
 自动确认要求 Books 保存的目标 CFI 匹配；页面对齐导致 CFI 不同、章首空位置或超时则保留待确认状态，可人工核对后确认、重试或取消。关闭 Books 窗口可能是落库条件。只有同修订 EPUB 的 CFI 回写；PDF、百分比、status 和 marks 不反向注入 Apple Books。详见 [Mac 同步实现](MAC.md)，此文件不是 Apple 官方数据库格式。
 
 ## 0.4.0 接续细节
+
+0.5.0 增加以下独立状态；其余 v1 格式保持兼容：
+
+```json
+{ "lifecycle": { "deleted": true, "updatedAt": "2026-10-25T12:00:00.000Z" } }
+```
+
+`lifecycle` 按与 `reading` 相同的时间戳规则单独合并。删除保留原文、进度和标注；恢复写入更新的 `deleted:false`。旧进度或普通收藏更新不能复活已删除书；本机打开中的书需先关闭才能删除，另一端删除后阅读器自动返回书库。Apple 原书不删除，已映射的 Apple 源也不能在后台重新导出为活动书。0.4.0 及更早版本忽略此字段，因此参与删除同步的客户端都需升级至 0.5.0。
+
+本机按书库保存 `observed-v1.json`，将有效设备快照与已经看到的最新字段合并。提供程序短暂漏列、返回旧快照或快照损坏时，保留先前状态，包括重启后；该缓存仅供本机恢复，不上传为设备快照。不同书库缓存隔离，不改变设备写入所有权。
 
 - 时间按解析后的实际时间比较，忽略无效时间。同时间戳按递归排序键后的对象 JSON 字符串比较，取字典序较大值，保证枚举顺序不同仍能收敛；本安装连续编辑使用单调递增时间。
 - `reading.originDeviceId` 是产生翻页/朗读的安装 UUID，用于区分自己保存与远端更新；旧客户端忽略扩展字段仍可合并。导航确认保留它和原时间。

@@ -11,9 +11,11 @@ import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import type { ReaderHandle, ReaderProps } from "./engine";
 import { splitText } from "./text";
 import type { Sentence } from "../types";
+import { t, useLocale } from "../i18n";
 GlobalWorkerOptions.workerSrc = workerUrl;
 export const PdfView = forwardRef<ReaderHandle, ReaderProps>(
   function PdfView(props, ref) {
+    useLocale();
     const canvas = useRef<HTMLCanvasElement>(null);
     const docRef = useRef<PDFDocumentProxy | null>(null);
     const [page, setPage] = useState(props.initial.page || 1);
@@ -243,7 +245,7 @@ export const PdfView = forwardRef<ReaderHandle, ReaderProps>(
           (props.settings.theme === "focus" ? " pdf-dark" : "")
         }
       >
-        <canvas ref={canvas} aria-label={`PDF 第 ${page} 页`} />
+        <canvas ref={canvas} aria-label={t("PDF 第 {0} 页", [page])} />
       </div>
     );
   },

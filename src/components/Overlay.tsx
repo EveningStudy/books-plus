@@ -1,3 +1,4 @@
+import { t, useLocale } from "../i18n";
 import { useEffect, useState } from "react";
 import {
   Lock,
@@ -14,6 +15,7 @@ import type { OverlayState } from "../types";
 import { subtitleDefaults } from "../defaults";
 import { IconButton } from "./Primitives";
 export function Overlay() {
+  useLocale();
   const [state, setState] = useState<OverlayState>({
     text: "",
     playing: false,
@@ -88,18 +90,18 @@ export function Overlay() {
             {begin + capacity < state.text.length ? "…" : ""}
           </>
         ) : (
-          "打开一本书，开始朗读"
+          t("打开一本书，开始朗读")
         )}
       </div>
       <div className="overlay-controls">
         <IconButton
-          label="上一句"
+          label={t("上一句")}
           onClick={() => window.reader?.control("previous")}
         >
           <SkipBack />
         </IconButton>
         <IconButton
-          label={state.playing ? "暂停" : "播放"}
+          label={state.playing ? t("暂停") : t("播放")}
           onClick={() => window.reader?.control("toggle")}
         >
           {state.loading ? (
@@ -111,26 +113,26 @@ export function Overlay() {
           )}
         </IconButton>
         <IconButton
-          label="下一句"
+          label={t("下一句")}
           onClick={() => window.reader?.control("next")}
         >
           <SkipForward />
         </IconButton>
         <span />
         <IconButton
-          label="字幕设置"
+          label={t("字幕设置")}
           onClick={() => window.reader?.control("settings")}
         >
           <Settings2 />
         </IconButton>
         <IconButton
-          label="锁定并穿透鼠标（Ctrl+Shift+L 解锁）"
+          label={t("锁定并穿透鼠标（Ctrl+Shift+L 解锁）")}
           onClick={() => window.reader?.lockOverlay(true)}
         >
           <Lock />
         </IconButton>
         <IconButton
-          label="隐藏字幕"
+          label={t("隐藏字幕")}
           onClick={() => window.reader?.showOverlay(false)}
         >
           <X />

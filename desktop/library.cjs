@@ -81,7 +81,7 @@ function mergeDevices(devices) {
       )
         continue;
       const target = (books[id] ||= { marks: {} });
-      for (const field of ["reading", "preferences", "status"])
+      for (const field of ["reading", "preferences", "status", "lifecycle"])
         if (newer(data[field], target[field])) target[field] = data[field];
       for (const [markId, mark] of Object.entries(data.marks || {})) {
         if (["__proto__", "constructor", "prototype"].includes(markId))
@@ -178,8 +178,7 @@ class Library {
     ).sort()) {
       if (!/^[a-zA-Z0-9_-]+\.json$/.test(name)) continue;
       const record = await json(path.join(extraDir, name));
-      if (record.version === 2 && record.book && !record.book.deleted)
-        extra.push(record.book);
+      if (record.version === 2 && record.book) extra.push(record.book);
     }
     const mapBook = (b) => ({
       asset_id: b.id,
@@ -207,15 +206,24 @@ class Library {
         );
       return {
         libraryId: catalog.libraryId,
-        raw: [...catalog.books.filter((b) => !b.deleted), ...extra].map(
-          mapBook,
-        ),
+        raw: [
+          ...new Map(
+            [...catalog.books, ...extra].map((b) => [b.id, b]),
+          ).values(),
+        ]
+          .filter((b) => !b.deleted)
+          .map(mapBook),
       };
     }
     const raw = await json(path.join(root, "library.json"));
     if (!Array.isArray(raw))
       throw Error("请选择包含 library.json 或 catalog.json 的云端书库文件夹");
-    return { raw: [...raw, ...extra.map(mapBook)] };
+    const combined = new Map(raw.map((b) => [b.asset_id, b]));
+    for (const book of extra) {
+      if (book.deleted) combined.delete(book.id);
+      else combined.set(book.id, mapBook(book));
+    }
+    return { raw: [...combined.values()] };
   }
   async bind(libraryId) {
     const root = this.config.root;
@@ -233,6 +241,10 @@ class Library {
     this.localDir = path.join(this.userDir, "libraries", key);
     this.formats = new Formats(path.join(this.localDir, "converted"));
     this.stateFile = path.join(this.localDir, "state-v1.json");
+    this.mergedFile = path.join(this.localDir, "observed-v1.json");
+    const observed = await json(this.mergedFile, { version: 1, books: {} });
+    this.merged = mergeDevices([observed]);
+    this.observedSerialized = stable(this.merged);
     this.device = await json(
       this.stateFile,
       root === this.legacyRoot
@@ -302,7 +314,13 @@ class Library {
         .filter(Boolean)
         .sort()
         .at(-1);
-      this.merged = mergeDevices([...devices, this.device]);
+      // File providers can briefly omit or redeliver an older device snapshot.
+      // Retain fields already observed, without publishing remote writes as ours.
+      this.merged = mergeDevices([
+        { version: 1, books: this.merged },
+        ...devices,
+        this.device,
+      ]);
       if (errors.length) syncError = errors.join("；");
     } catch (e) {
       syncError = e.message;
@@ -310,6 +328,11 @@ class Library {
         { version: 1, books: this.merged },
         this.device,
       ]);
+    }
+    const serialized = stable(this.merged);
+    if (serialized !== this.observedSerialized) {
+      await atomicJson(this.mergedFile, { version: 1, books: this.merged });
+      this.observedSerialized = serialized;
     }
     const books = raw.map((b) => {
       const position = positions
@@ -399,7 +422,8 @@ class Library {
     });
     return {
       root,
-      books,
+      books: books.filter((b) => !b.state.lifecycle?.deleted),
+      trash: books.filter((b) => b.state.lifecycle?.deleted),
       history,
       libraryId,
       syncError,
@@ -419,6 +443,8 @@ class Library {
     return real;
   }
   async read(id) {
+    if (this.merged?.[id]?.lifecycle?.deleted)
+      throw Error("这本书已在最近删除中，请先恢复");
     const epoch = (this.epochs.get(id) || 0) + 1;
     this.epochs.set(id, epoch);
     const localDir = this.localDir,
@@ -681,6 +707,11 @@ class Library {
     this.importQueue = result.catch(() => {});
     return result;
   }
+  setDeleted(id, deleted) {
+    if (typeof deleted !== "boolean")
+      return Promise.reject(Error("无效的删除操作"));
+    return this.save(id, { lifecycle: { deleted } });
+  }
   save(id, patch) {
     const run = async () => {
       if (!this.items.has(id)) throw Error("未知图书");
@@ -696,11 +727,24 @@ class Library {
       } catch {
         /* Local edits stay available while the provider is offline. */
       }
+      if (this.merged?.[id]?.lifecycle?.deleted && !patch.lifecycle)
+        throw Error("这本书已在其他设备删除，请先恢复");
+      if (
+        patch.lifecycle?.deleted &&
+        (this.active.has(id) || this.opening.has(id))
+      )
+        throw Error("请先关闭这本书，再删除");
       const current = (this.device.books[id] ||= { marks: {} });
       const now = new Date(
-        Math.max(Date.now(), (Date.parse(this.device.updatedAt) || 0) + 1),
+        Math.max(
+          Date.now(),
+          (Date.parse(this.device.updatedAt) || 0) + 1,
+          ...Object.values(this.merged?.[id] || {}).map(
+            (v) => Date.parse(v?.updatedAt) + 1 || 0,
+          ),
+        ),
       ).toISOString();
-      for (const field of ["reading", "preferences", "status"])
+      for (const field of ["reading", "preferences", "status", "lifecycle"])
         if (patch[field])
           current[field] = {
             ...(this.merged?.[id]?.[field] || current[field] || {}),

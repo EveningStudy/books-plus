@@ -1,3 +1,4 @@
 * text=auto
 *.ps1 text eol=crlf
 *.png binary
+*.plist text eol=lf

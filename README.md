@@ -1,135 +1,120 @@
 # Books+
 
-当前版本：**0.4.0**。
+**把书放进云盘，在 Windows 和 Mac 上接着读。**
 
-Mac Apple Books 风格的桌面阅读器：云端书库、多格式阅读、可下载的本地神经语音、透明置顶字幕。支持 Windows 与 macOS；Mac 内置 Apple Books 后台同步、登录项与菜单栏。可连接 [books-icloud-exporter](https://github.com/EveningStudy/books-icloud-exporter) 导出目录。
+以 Apple Books 的阅读习惯为参考，提供多格式书库、阅读进度同步、在线与离线朗读，以及独立的桌面字幕。
 
-## 使用
+[安装与升级](docs/INSTALLATION.md) · [图文使用指南](docs/USER_GUIDE.md) · [云盘与 Mac 同步](docs/SYNC_GUIDE.md) · [全部文档](docs/README.md)
 
-Mac 打开 `Books+.app`（本次构建在 `release/mac-arm64/`）；Windows 使用便携版。运行打包应用无需 Node、Python 或配置语音模型路径。
+![Books+ 书库：封面、阅读进度、收藏与分类](docs/assets/screenshots/library-grid.png)
 
-Mac 首次启动选择 **只同步 / 只阅读 / 两者都用**。只同步隐藏 Dock 图标，仅保留菜单栏；两者都用时关闭阅读器窗口也继续同步，⌘Q 才退出。同步模式支持登录后后台启动，需按系统要求允许完全磁盘访问和登录项。运行模式与同步状态在「设置 → Mac 同步」管理。
 
-默认查找 `%USERPROFILE%\iCloudDrive\Books Export`；也可选择其他云盘文件夹。兼容原 `library.json`、新版 `catalog.json`，空文件夹会初始化为新书库。书库右下角「加入图书」可批量导入文件到云盘，保留原格式。
+## 先看它能做什么
 
-浏览只读取书目、记录和小封面，点击图书才读取正文，由云盘客户端下载。默认 **7 天未阅读后释放本地下载**，在「设置 → 书库」可调整或关闭；图书更多选项可「下载并保留离线」或手动释放。
+| 你想做的事           | Books+ 的入口                                               |
+| -------------------- | ----------------------------------------------------------- |
+| 把本机电子书放到书库 | 右下角 **加入图书**，支持批量选择                           |
+| 换一台电脑继续看     | 两端连接同一云端书库，收到新进度时点 **接着读**             |
+| 调整阅读体验         | **主题与设置**：六个主题、字体、字号、分页 / 滚动、翻页效果 |
+| 记录喜欢的段落       | 选中文字 → **标注**，可附带笔记；工具栏可加书签             |
+| 听书                 | **设置 → 朗读**：Edge 在线、系统离线、可下载的本地模型      |
+| 让字幕留在桌面       | **设置 → 桌面字幕**，独立透明置顶窗口                       |
+| 暂时移走一本书       | 图书更多选项 → **删除图书…**；从 **最近删除** 恢复          |
+| 获取新版             | **设置 → 软件更新**；Windows 支持保存进度后重启安装         |
 
-Windows 使用 Cloud Files API，Mac iCloud Drive 使用 Foundation 的移除本机下载接口，仅释放已同步且未固定的正文，并跳过应用离线保护的书籍；不删除云端原件。提供程序可能拒绝操作，普通文件夹及未接入此接口的平台须在云盘客户端管理空间。新增文件需完成上传并成为云占位文件后才能释放。自动清理只管理 Books+ 打开过的书，仅在应用运行时检查。
+## 从导入到阅读
 
-旧导出器没有独立封面时，未打开的书显示文字封面；打开后缓存真实 EPUB 封面。未来导出器可提供封面侧文件，避免浏览时下载整本书。
+1. [安装应用](docs/INSTALLATION.md)，打开后在 **设置 → 书库** 选择文件夹。本机空文件夹也可以作为书库。
+2. 点 **加入图书**，选择 EPUB、PDF 或其他支持格式。
+3. 点击封面开始阅读。进度自动保存；书签、批注和分类可在侧栏查找。
 
-## 格式
+![双页阅读：正文、进度条和底部朗读控制](docs/assets/screenshots/reader-light.png)
 
-| 支持方式          | 格式                                                                                                                   |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| 原生渲染          | EPUB、KEPUB、PDF                                                                                                       |
-| 内置转换          | TXT、MD / Markdown、HTML / HTM / XHTML、FB2                                                                            |
-| 内置漫画阅读      | CBZ、CBT（PNG / JPEG / WebP / GIF，自然页序）                                                                          |
-| 可选 Calibre 转换 | MOBI、AZW / AZW3 / AZW4、PRC、DOCX、ODT、RTF、LIT、LRF、PDB、DJVU、CHM、CBR、CB7、CBC、FBZ、HTMLZ、PML、SNB、TCR、TXTZ |
+EPUB、KEPUB、PDF 原生阅读；TXT、Markdown、HTML、FB2 内置转换；CBZ / CBT 内置漫画阅读。MOBI、AZW3、DOCX 等需单独安装 Calibre。加密 DRM 文件无法打开；图片书需先 OCR 才能朗读。[查看完整格式与限制](docs/FEATURES.md#格式)
 
-转换在打开时进行，仅缓存到本机，原文件不变。TXT 自动识别 UTF-8、UTF-16、GB18030，也可手选编码。HTML / Markdown 相对图片随导入复制（限文档目录内，每图 15 MB、合计 80 MB），打开时嵌入；不加载远程图片和脚本。FB2 保留正文、基本强调和内嵌图片。漫画上限 3,000 页 / 400 MB 展开数据，单图 30 MB。导入单文件上限 512 MB。
+## 按自己的习惯排版
 
-Calibre 需[单独安装](https://calibre-ebook.com/download)，在「设置 → 格式支持」自动检测或选择 `ebook-convert`。转换兼容性取决于原稿，尚未验证全部输入格式。无法打开 DRM 加密书；扫描 PDF、纯图片漫画、无文字层 DJVU 需先 OCR 才能朗读，本应用不含 OCR。不支持旧 `.doc`。
+白天、纸张色或深色阅读，搭配单页 / 双页、分页 / 滚动。目录、全文搜索和批注在同一个阅读窗口里。
 
-## 阅读
+<table>
+  <tr>
+    <td><img src="docs/assets/screenshots/reader-themes.png" alt="阅读主题面板：主题、字号、翻页和字体设置" width="640"></td>
+    <td><img src="docs/assets/screenshots/reader-dark.png" alt="专注主题下的深色阅读页面" width="640"></td>
+  </tr>
+  <tr><td align="center">随时调整主题与排版</td><td align="center">专注主题</td></tr>
+</table>
 
-- 拟真卷页、滑动、淡入淡出、无动画；时长 250–1,000 ms。垂直滚动、系统减少动态效果时关闭动画。
-- 快速连按或长按方向键会结束当前动画，按顺序执行翻页；跳转阅读进度时取消尚未执行的翻页。
-- 单页 / 双页、分页 / 滚动，六个主题；字体、字号、行距、字距、段距、对齐、页面亮度。
-- 书目搜索、排序、网格 / 列表、最近阅读、想读、已读、收藏、分类。
-- EPUB / 转换文档：章节目录、全文搜索、书签、选区高亮、笔记。PDF：页进度、搜索、文字朗读、书签，暂不支持选区批注。
-- 优先恢复 Books+ 位置，其次尝试导出的 Apple Books CFI，再按百分比定位。不同排版引擎的页码和百分比可能不同。
+![书签与批注：保留原文并附上自己的笔记](docs/assets/screenshots/reader-bookmarks.png)
 
-## 朗读与字幕
+## 同一书库，两台电脑
 
-「设置 → 朗读」支持音色、语速 0.5–3×、音量、睡眠定时和页面跟随。
+Books+ 使用云盘客户端已经同步到本机的文件夹。**在软件中选目录即可，无需在 Books+ 登录云盘。**
 
-| 引擎                  | 使用方式                                                      | 字幕时间点               |
-| --------------------- | ------------------------------------------------------------- | ------------------------ |
-| Edge 在线（默认）     | 中英日粤等预设音色，默认晓晓，需网络                          | 返回的词边界             |
-| ZipVoice Distill INT8 | 约 156 MiB，中文 / 英文 / 混读，两种新闻女声，CPU             | 逐句                     |
-| Pocket TTS            | 约 162 MiB，100M 完整精度英文模型，Alba 女声 / Bill 男声，CPU | 逐句                     |
-| Kitten Mini 0.8       | 约 64 MiB，80M 英文模型，八种音色，CPU                        | 逐句                     |
-| 系统离线              | Windows SAPI / Mac `say`，无需模型                            | Windows 词边界，Mac 逐句 |
-| 手动 Piper            | 自备程序、ONNX 和 `.onnx.json`                                | 逐句                     |
+![Windows 与 Mac 通过同一云端书库共享正文和阅读记录](docs/assets/diagrams/sync-overview.svg)
 
-下载显示进度，可取消、移除、重新下载；固定 SHA-256 校验后安装。支持 1 / 2 / 4 个 CPU 线程，无需显卡；首次加载较慢，后续预取下一句，闲置两分钟后释放模型内存。模型和音频缓存仅在本机保存。各模型适用独立许可，设置中可查看来源 / 模型卡。
+iCloud Drive、OneDrive、Google Drive 已完成 Windows ↔ Mac 的真实跨端导入、进度、书签、删除与恢复测试；Dropbox、坚果云、Syncthing 等具备兼容的文件夹机制，但未做本轮双机实测。网页网盘和只有 API 的服务不能直接连接。[同步配置与实测范围](docs/SYNC_GUIDE.md)
 
-中文本地朗读可先试听 ZipVoice，英文可比较 Pocket 和 Kitten。ZipVoice / Pocket 提供快速、均衡、细致三档，步数增加会延长等待，不保证每段都更好听。ZipVoice / Pocket 使用保持音调的播放变速；其余模型使用合成语速。本地推理在独立进程中运行，模型异常退出会显示错误，可重试或切换引擎。英文模型遇到中文、日文或韩文会提示换用 Edge / ZipVoice。不同模型、音色与文本的听感需自行试听，不能由参数量判断。
+![阅读时收到另一设备的新位置，可以主动选择接着读](docs/assets/screenshots/reader-resume.png)
 
-升级到 0.2.2 会一次性将首选引擎切换为 Edge，保留已有 Edge 音色及语速、音量等偏好；之后记住手动选择。旧 Kokoro / Piper Lessac 只在已安装时显示，可继续使用或移除，不再提供下载，不会自动删除。
+上图用本地隔离书库演示接力提示；真实云盘测试的步骤、失败记录和结果见 [0.5.0 验收报告](docs/TESTING-0.5.0.md)。写入文件夹后仍需等待云盘上传与另一端下载，延迟取决于云盘客户端。
 
-本地引擎不发送正文；**Edge 将当前句和预取的下一句发送到微软服务**，第三方客户端接入可能因服务变动失效。0.2.3 更新 Read Aloud / GEC v2 协议；握手异常（包括 HTTP 200）、断线及空音频会在微软的两个端点间自动重试，最多三次、合成总限时 25 秒。失败不缓存残缺音频。音高仅 Edge 可调。神经模型按实际音频逐句同步，未伪造词时间点。自动播放检查采用静音，不代表人工音质评价。
+### Mac 与 Apple Books
 
-桌面字幕是独立的透明置顶窗口：字号、字体、颜色、描边、背景透明度、1–4 行、对齐、位置、大小均可调。支持鼠标穿透、暂停、跳句和后台播放。
+Mac 内置 **只同步 / 只阅读 / 两者都用** 三种模式。可将 Apple Books 的无 DRM EPUB / PDF、进度和批注导出到云库；同修订 EPUB 位置可经 Books 深链接回写，存在页首对齐与人工核对边界。PDF 进度、批注和完成状态不反向回写。没有宣称 iPhone 已验证。[查看 Mac 图文说明](docs/SYNC_GUIDE.md#mac-与-apple-books)
 
-| 操作                | Windows / Mac              |
-| ------------------- | -------------------------- |
-| 翻页                | ← / → 或 PageUp / PageDown |
-| 播放 / 暂停         | 阅读页空格，输入框外       |
-| 全局播放 / 暂停     | Ctrl / ⌘ + Shift + Space   |
-| 显示 / 隐藏字幕     | Ctrl / ⌘ + Shift + D       |
-| 锁定 / 解锁字幕     | Ctrl / ⌘ + Shift + L       |
-| 返回书库 / 关闭面板 | Esc                        |
+![真实 Mac 应用的 Apple Books 同步设置，示例使用只阅读模式](docs/assets/screenshots/mac-sync.png)
 
-## 云端与 Apple Books 同步
+## 朗读与桌面字幕
 
-支持 iCloud Drive、OneDrive、Dropbox、Google Drive、坚果云、Syncthing 等客户端同步的本地文件夹。Mac 和 Windows 选择同一份云端书库的本地副本，无需在 Books+ 登录云盘。只有网页/API、没有本地同步或挂载目录的服务暂不支持；详情见 [云盘兼容范围](docs/CLOUD_LIBRARY.md#云盘兼容范围)。
+Edge 适合联网朗读；系统语音无需下载模型；ZipVoice、Pocket TTS、Kitten 支持本机 CPU 推理。下载模型时可查看大小、来源和许可。**Edge 会将朗读句子发送到微软服务；本地引擎不发送正文。**
 
-0.4.0 阅读器每 5 秒及聚焦时读取到达本地的新状态，打开书前再次刷新。阅读中收到远端新位置显示「接着读」；初始化、索引、排版和接续恢复不重新发布进度。Books 前台阅读时暂缓后台自动跳转，可主动点「在 Books 中继续」。helper 事件合并最长约 1.5 秒、30 秒补查；实际跨端延迟仍取决于云盘传输和 Books 保存。
+<table>
+  <tr>
+    <td><img src="docs/assets/screenshots/settings-models.png" alt="本地神经语音：模型、音色、质量和线程设置" width="640"></td>
+    <td><img src="docs/assets/screenshots/settings-subtitles.png" alt="桌面字幕预览与字号、背景、描边设置" width="640"></td>
+  </tr>
+  <tr><td align="center">按语言与听感选择语音</td><td align="center">自定义独立桌面字幕</td></tr>
+</table>
 
-**58 项测试通过**，打包阅读器 EPUB/PDF/TXT/Markdown/FB2 用户流程、真实 Books 第 14 页回写保存与第 15 页继续阅读导出均已复测。范围与限制见 [0.4.0 验收报告](docs/TESTING-0.4.0.md)；Windows/macOS 原生 CI 结果见仓库 Actions。
+[朗读与字幕操作步骤](docs/USER_GUIDE.md#朗读与桌面字幕) · [模型参数、隐私与快捷键](docs/FEATURES.md#朗读与字幕)
 
-书籍、书目、封面、进度、书签、批注在云盘；本机备份、正文副本、生成缓存可恢复。上传由云盘客户端负责，「已写入云盘文件夹」不等于已确认上传。
+## 可恢复的删除与应用更新
 
-进度自动保存不弹窗；云盘暂时无法写入时保留本机备份，在书库左下角显示待同步原因，后台重试。本机保存失败仍会显示错误。
+删除会同步到同一书库的 0.5.0 客户端。原文件、进度和批注保留，在 **最近删除** 中可恢复；不会删除 Apple Books 原书，也不会释放正文空间。
 
-- [书库布局与协议 v2](docs/CLOUD_LIBRARY.md)：ID、不可变内容、导入侧文件、封面、多设备与 Mac 接口。
-- [进度协议 v1](docs/SYNC.md)：每台设备只写自己的快照，先保存本机再写云盘，失败每 30 秒重试。
+<table>
+  <tr>
+    <td><img src="docs/assets/screenshots/delete-confirm.png" alt="删除确认明确说明保留内容和跨端影响" width="640"></td>
+    <td><img src="docs/assets/screenshots/settings-updates.png" alt="软件更新页：当前版本、自动检查和自动下载开关" width="640"></td>
+  </tr>
+  <tr><td align="center">删除前确认，随时恢复</td><td align="center">在应用中管理更新</td></tr>
+</table>
 
-原导出器的 `library.json`、`manifest.json`、`books/`、`notes/`、`records/` 不改写。Mac 内置同步 helper：
+Windows 提供安装版与便携版，便携版更新会迁移为安装版。当前 Mac 包为本地签名，支持版本检查；自动安装仍需 Developer ID 与正式发行配置。旧版首次需要手动安装带更新器的版本。[删除与恢复](docs/USER_GUIDE.md#删除与恢复) · [安装与更新](docs/INSTALLATION.md)
 
-- **Books → 云盘**：FSEvents 监听变化，自动导出无 DRM EPUB/PDF、进度、批注和完成状态。先发布不可变正文，再写 catalog 侧文件；Apple Books 以独立虚拟设备写 v1 进度快照。
-- **云盘 → Books**：新 EPUB/PDF 用 `open -a Books` 导入；按正文指纹确认 Apple asset ID。相同修订 EPUB 的新进度用 `ibooks://assetid/<id>#epubcfi(...)` 定位，由 Books 自己保存。设置可关闭自动位置回写，改用「在 Books 中继续」。
-- **映射与回声**：云书 UUID 与 Apple asset ID 分开记录；只回写同修订位置，回写前写日志，等 Books 保存位置后确认，沿用云端原时间，重启不重复导航。多候选、损坏正文与修订冲突会提示。
-- **位置边界**：Books 会把段内 CFI 保存为页首 CFI，且可能在关闭书籍窗口后才落库；不能精确确认时显示待核对，提供确认、重试、取消。此 URL 依据本机实验，非已确认的 Apple 稳定公开 API。PDF/百分比、批注、完成状态不回写；不直接写 Apple 数据库。
+## 验证与发行状态
 
-完整架构、权限、恢复与验收见 [Mac 使用与开发说明](docs/MAC.md)，可行性实验见 [Apple Books 回写研究](docs/research/apple-books-writeback.md)。
+0.5.0已取得以下证据：
 
-## 开发
+- Windows x64 与 Apple Silicon Mac 各 **71 项单元 / 协议测试通过**。
+- 两台真实打包应用完成 EPUB / PDF / TXT / Markdown / FB2 阅读，以及三种云盘的进度接力、删除和恢复。
+- Windows 通过真实安装器完成 QA 版本 **0.4.99 → 0.5.0** 升级，校验失败会拒绝安装，正确更新后保留书籍与记录。
 
-需要 Node.js 24+ 和 npm；Mac 开发还需 Xcode Command Line Tools，Windows 接口使用系统 PowerShell / .NET。
+**正式发行仍需完成 Mac Developer ID 签名与公证、GitHub 正式更新源发布及线上升级验收。** Windows 包尚未签名；Intel Mac、iPhone、多日压力和全部格式未完整覆盖。已有测试通过不代表没有问题。[完整测试记录](docs/TESTING-0.5.0.md) · [发行检查](docs/RELEASE.md)
 
-```powershell
-npm ci
-npm run dev
-npm run build
-npm start
-npm test
-npm run test:desktop
-npm run package:win
-```
-
-`dev` 启动 Vite 与 Electron。`dev:web` 只有网页界面，没有桌面文件、语音和字幕接口。便携程序输出在 `release/`。
-
-环境变量：`READER_USER_DATA` 隔离配置，`READER_LIBRARY_ROOT` 指定书库，`READER_MODELS_DIR` 指定模型目录。升级保留 `%APPDATA%/icloud-books-reader` 配置；模型默认 `%LOCALAPPDATA%/BooksReader/models`。
-
-Mac 构建与隔离验收：
+## 开发与文档
 
 ```sh
-npm run package:mac         # 自动编译 Swift helper，生成 Books+.app
-npm run test:mac            # 已打包应用的隔离验收
-npm run package:mac:dmg     # 拖到 Applications 的 DMG
+npm ci
+npm run dev
+npm test
+npm run build
 ```
 
-Mac 配置在 `~/Library/Application Support/icloud-books-reader`。本次为 Apple Silicon 构建，已实机运行；使用 ad-hoc 本地签名，尚无 Developer ID 签名与 Apple 公证。公开分发前需配置自己的签名证书与公证。Intel / universal 包未构建验收。
+开发需 Node.js 24+；Mac 编译原生桥还需 Xcode Command Line Tools。打包后的应用无需安装 Node 或 Python。
 
-## 验证与边界
-
-自动化测试覆盖浏览不读正文、7 天释放保护条件、书库状态隔离、原记录保留、文本编码、HTML 清洗 / 图片、FB2、漫画页序、转换错误、进度合并与本机写入恢复。Windows 桌面隔离库验证多格式导入 / 打开、四种翻页、PDF 翻页、模型试听、音频字幕、书签与重启恢复。
-
-原 Windows 版本记录了真实 iCloud 文件「释放下载 → 云端占位 → 重新读取」的 SHA-256 一致性验证；Mac 驱逐接口已接入，本次未对个人云端原件重做驱逐实验。尚未进行人工音质评价、完整格式语料测试或 Apple 私有排版引擎的像素一致性验证。0.4.0 的 58 项测试与新增用户流程见上方验收报告；Windows 原生 CI 与本地协议模拟分开记录。尚未验证实际重新登录、第二台个人电脑的真实云盘传输、另一台 Apple 设备收到进度、全部格式和 Books 版本。没有书店、购买、Apple 登录、DRM、字典或手写批注。
+[开发与构建](docs/DEVELOPMENT.md) · [书库协议 v2](docs/CLOUD_LIBRARY.md) · [进度协议 v1](docs/SYNC.md) · [Mac 技术说明](docs/MAC.md) · [文档目录](docs/README.md)
 
 ## 开源
 
-自有代码使用 [MIT](LICENSE)，第三方代码、运行库、模型和 Calibre 适用各自许可，见 [依赖说明](THIRD_PARTY.md)。本项目独立于 Apple 与 Microsoft；没有分发 Apple 字体、书籍、个人记录、模型、音频缓存或本机配置。
+自有代码使用 [MIT](LICENSE)。第三方运行库、语音模型和 Calibre 适用各自许可，见 [依赖说明](THIRD_PARTY.md)。本项目独立于 Apple 与 Microsoft；仓库文档中的示例书籍、封面和正文为原创演示内容。

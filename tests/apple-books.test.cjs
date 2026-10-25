@@ -124,6 +124,26 @@ async function cloudBook(f, id = "CLOUD1", bytes) {
   });
   return digest;
 }
+test("deleted cloud books neither import nor jump; owned Apple source cannot resurrect them", async (t) => {
+  const f = await setup(t);
+  await f.sync.cycle();
+  await f.library.load();
+  await f.library.setDeleted("APPLE1", true);
+  const before = await fs.readFile(
+    path.join(f.root, "catalog/extra/APPLE1.json"),
+  );
+  await f.sync.cycle();
+  assert.deepEqual(f.opens, []);
+  assert.deepEqual(f.jumps, []);
+  assert.deepEqual(
+    await fs.readFile(path.join(f.root, "catalog/extra/APPLE1.json")),
+    before,
+  );
+  assert.equal((await f.library.load()).books.length, 0);
+  await f.library.setDeleted("APPLE1", false);
+  await f.sync.cycle();
+  assert.equal((await f.library.load()).books.length, 1);
+});
 async function remote(
   f,
   id,

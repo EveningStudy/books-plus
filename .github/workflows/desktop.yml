@@ -25,12 +25,14 @@ jobs:
       - run: npm run build:mac-helper
       - run: npm run build
       - run: npm run test:desktop
+      - run: npm run test:i18n
       - if: runner.os == 'macOS'
         run: npm run package:mac:dmg
       - if: runner.os == 'macOS'
         run: npm run test:mac
       - if: runner.os == 'Windows'
         run: npm run package:win
+      - run: node scripts/verify-release.cjs
       - uses: actions/upload-artifact@v4
         if: success()
         with:
@@ -38,6 +40,9 @@ jobs:
           path: |
             release/*.dmg
             release/*.exe
+            release/*.zip
+            release/*.yml
+            release/*.blockmap
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         if: failure()

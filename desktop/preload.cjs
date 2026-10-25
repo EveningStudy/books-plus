@@ -5,6 +5,15 @@ const on = (name, fn) => {
   return () => ipcRenderer.removeListener(name, listener);
 };
 contextBridge.exposeInMainWorld("reader", {
+  getLocale: () => ipcRenderer.invoke("locale:get"),
+  setLocale: (language) => ipcRenderer.invoke("locale:set", language),
+  onLocaleChange: (fn) => on("locale:changed", fn),
+  updateStatus: () => ipcRenderer.invoke("updates:status"),
+  checkUpdates: () => ipcRenderer.invoke("updates:check"),
+  downloadUpdate: () => ipcRenderer.invoke("updates:download"),
+  installUpdate: () => ipcRenderer.invoke("updates:install"),
+  updatePage: () => ipcRenderer.invoke("updates:page"),
+  onUpdate: (fn) => on("updates:status", fn),
   macStatus: () => ipcRenderer.invoke("mac:status"),
   macSettings: (settings) => ipcRenderer.invoke("mac:settings", settings),
   macSync: () => ipcRenderer.invoke("mac:sync"),
@@ -23,6 +32,7 @@ contextBridge.exposeInMainWorld("reader", {
   closeBook: (id) => ipcRenderer.invoke("book:closed", id),
   offline: (id, keep) => ipcRenderer.invoke("book:offline", id, keep),
   release: (id) => ipcRenderer.invoke("book:release", id),
+  setDeleted: (id, deleted) => ipcRenderer.invoke("book:delete", id, deleted),
   sweep: () => ipcRenderer.invoke("storage:sweep"),
   models: () => ipcRenderer.invoke("models:list"),
   installModel: (id) => ipcRenderer.invoke("models:install", id),

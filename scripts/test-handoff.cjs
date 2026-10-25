@@ -232,6 +232,67 @@ function pdf() {
       await page.getByRole("button", { name: "图书", exact: true }).click();
     }
     results.push("PDF turn/persistence and TXT, Markdown, FB2 real rendering");
+    const epubCard = page
+      .locator(".book-card")
+      .filter({ has: card("Handoff Fixture") });
+    await epubCard.locator("summary").click();
+    await epubCard
+      .getByRole("button", { name: "删除图书…", exact: true })
+      .click();
+    await page.getByRole("button", { name: "取消", exact: true }).click();
+    assert.equal(await card("Handoff Fixture").count(), 1);
+    await epubCard
+      .getByRole("button", { name: "删除图书…", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "移到最近删除", exact: true })
+      .click();
+    await card("Handoff Fixture").waitFor({ state: "detached" });
+    assert.equal((await remote.load()).trash[0].id, id);
+    await page.getByRole("button", { name: "最近删除", exact: true }).click();
+    await page.screenshot({ path: path.join(base, "trash.png") });
+    await page.locator(".book-menu summary").click();
+    await page.getByRole("button", { name: "恢复图书", exact: true }).click();
+    await page.waitForFunction(
+      () => document.querySelectorAll(".book-card").length === 0,
+    );
+    assert.equal(
+      Object.values(
+        (await remote.load()).books.find((b) => b.id === id).state.marks,
+      ).filter((m) => !m.deleted).length,
+      1,
+    );
+    await page
+      .locator(".sidebar")
+      .getByRole("button", { name: /^全部图书/ })
+      .click();
+    await card("Handoff Fixture").waitFor();
+    results.push(
+      "delete confirmation/cancel, remote tombstone, trash and restore with marks",
+    );
+    await page.getByRole("button", { name: "设置", exact: true }).click();
+    await page.getByRole("button", { name: "软件更新", exact: true }).click();
+    assert.equal(
+      await page
+        .getByRole("heading", { name: "桌面字幕", exact: true })
+        .count(),
+      0,
+    );
+    await page.getByRole("button", { name: "桌面字幕", exact: true }).click();
+    await page
+      .getByRole("heading", { name: "桌面字幕", exact: true })
+      .waitFor();
+    assert.equal(await page.locator(".update-settings").count(), 0);
+    await page.getByRole("button", { name: "软件更新", exact: true }).click();
+    await page.getByRole("button", { name: "检查更新", exact: true }).click();
+    await page
+      .getByText(/当前已是最新版本|更新失败，可重试/)
+      .waitFor({ timeout: 25000 });
+    await page.screenshot({ path: path.join(base, "updates.png") });
+    results.push(
+      "update settings renders and live release check finishes without runtime errors",
+    );
+    await page.getByRole("button", { name: "关闭设置", exact: true }).click();
     await page.screenshot({ path: path.join(base, "library.png") });
     assert.deepEqual(errors, []);
     console.log(

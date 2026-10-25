@@ -41,6 +41,8 @@ export type SubtitleSettings = {
   alwaysOnTop: boolean;
 };
 export type AppSettings = {
+  language?: "zh" | "en";
+  updates?: { autoCheck?: boolean; autoDownload?: boolean };
   mac?: MacSettings;
   reading?: ReadSettings;
   voice?: VoiceSettings;
@@ -71,6 +73,7 @@ export type Reading = {
   contentRevision?: string;
 };
 export type BookState = {
+  lifecycle?: { deleted: boolean; updatedAt?: string };
   reading?: Reading;
   marks?: Record<string, Mark>;
   preferences?: ReadSettings;
@@ -111,6 +114,7 @@ export type BookItem = {
 export type LibraryData = {
   root: string;
   books: BookItem[];
+  trash?: BookItem[];
   settings: AppSettings;
   syncError?: string;
   deviceId: string;
@@ -184,6 +188,21 @@ export type OverlayState = {
   locked?: boolean;
 };
 export type SyncResult = { synced: boolean; at?: string; error?: string };
+export type UpdateStatus = {
+  phase:
+    | "idle"
+    | "checking"
+    | "current"
+    | "available"
+    | "downloading"
+    | "downloaded"
+    | "error";
+  currentVersion: string;
+  version?: string;
+  mode: "automatic" | "migration" | "manual" | "development";
+  percent?: number;
+  error?: string;
+};
 export type MacSettings = {
   mode: "sync" | "reader" | "both";
   login: boolean;
@@ -215,6 +234,15 @@ export type MacStatus = {
   pending: number;
 };
 export interface ReaderAPI {
+  getLocale(): Promise<"zh" | "en">;
+  setLocale(language: "zh" | "en"): Promise<"zh" | "en">;
+  onLocaleChange(fn: (language: "zh" | "en") => void): () => void;
+  updateStatus(): Promise<UpdateStatus>;
+  checkUpdates(): Promise<UpdateStatus>;
+  downloadUpdate(): Promise<UpdateStatus>;
+  installUpdate(): Promise<void>;
+  updatePage(): Promise<void>;
+  onUpdate(fn: (status: UpdateStatus) => void): () => void;
   macStatus(): Promise<MacStatus>;
   macSettings(settings: MacSettings): Promise<MacStatus>;
   macSync(): Promise<MacStatus>;
@@ -244,6 +272,10 @@ export interface ReaderAPI {
   closeBook(id: string): Promise<void>;
   offline(id: string, keep: boolean): Promise<void>;
   release(id: string): Promise<void>;
+  setDeleted(
+    id: string,
+    deleted: boolean,
+  ): Promise<{ data: LibraryData; sync: SyncResult }>;
   sweep(): Promise<{ released: number; skipped: number }>;
   models(): Promise<ModelInfo[]>;
   installModel(id: string): Promise<void>;

@@ -1,6 +1,8 @@
+import { t, useLocale } from "../i18n";
 import { useEffect, useRef } from "react";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { X } from "lucide-react";
+import { LanguageSwitcher } from "./LanguageSwitcher";
 export function IconButton({
   label,
   children,
@@ -11,6 +13,7 @@ export function IconButton({
   children: ReactNode;
   active?: boolean;
 }) {
+  useLocale();
   return (
     <button
       className={"icon-button" + (active ? " active" : "")}
@@ -31,6 +34,7 @@ export function Switch({
   onChange: (v: boolean) => void;
   label: string;
 }) {
+  useLocale();
   return (
     <button
       type="button"
@@ -63,6 +67,7 @@ export function Range({
   suffix?: string;
   disabled?: boolean;
 }) {
+  useLocale();
   return (
     <label className={"setting-row range-row" + (disabled ? " disabled" : "")}>
       <span>{label}</span>
@@ -94,6 +99,7 @@ export function Dialog({
   children: ReactNode;
   wide?: boolean;
 }) {
+  useLocale();
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const before = document.activeElement as HTMLElement;
@@ -146,7 +152,8 @@ export function Dialog({
       >
         <header>
           <h2>{title}</h2>
-          <IconButton label="关闭设置" onClick={onClose}>
+          <LanguageSwitcher />
+          <IconButton label={t("关闭设置")} onClick={onClose}>
             <X />
           </IconButton>
         </header>

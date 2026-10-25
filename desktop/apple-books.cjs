@@ -7,7 +7,13 @@ const { promisify } = require("node:util");
 const JSZip = require("jszip");
 const crc32 = require("jszip/lib/crc32");
 const { XMLParser } = require("fast-xml-parser");
-const { atomicJson, json, within, mergeDevices } = require("./library.cjs");
+const {
+  atomicJson,
+  json,
+  within,
+  mergeDevices,
+  readDevices,
+} = require("./library.cjs");
 const exec = promisify(execFile);
 const hash = (value) => crypto.createHash("sha256").update(value).digest("hex");
 const xml = new XMLParser({
@@ -549,7 +555,22 @@ class AppleBooksSync {
         .map((a) => [a.ZASSETID, a]),
     );
     this.status.issues = snapshot.errors.map((error) => ({ error }));
-    const cloudBooks = new Map(catalog.raw.map((b) => [b.asset_id, b]));
+    const lifecycleDevices = await readDevices(root);
+    const lifecycleState = mergeDevices([
+      { version: 1, books: this.library.merged },
+      ...lifecycleDevices.devices,
+      this.library.device,
+    ]);
+    const deletedIds = new Set(
+      Object.entries(lifecycleState)
+        .filter(([, b]) => b.lifecycle?.deleted)
+        .map(([id]) => id),
+    );
+    const cloudBooks = new Map(
+      catalog.raw
+        .filter((b) => !deletedIds.has(b.asset_id))
+        .map((b) => [b.asset_id, b]),
+    );
     for (const book of cloudBooks.values()) {
       if (book.file && !book.revision && !book.sha256) {
         try {
@@ -564,6 +585,8 @@ class AppleBooksSync {
     // Verify and cache source revisions. EPUB content fingerprint ignores ZIP timestamps.
     const sourceInfo = new Map();
     const reservedSources = new Set();
+    for (const id of deletedIds)
+      reservedSources.add(state.mappings[id]?.assetId || id);
     for (const [assetId, asset] of assets) {
       try {
         const source = await sourceBook(

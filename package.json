@@ -1,6 +1,6 @@
 {
   "name": "icloud-books-reader",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "description": "Books+ desktop reader with cloud libraries, offline neural narration and desktop subtitles",
   "main": "desktop/main.cjs",
@@ -10,14 +10,15 @@
     "build": "tsc --noEmit && vite build",
     "start": "electron .",
     "test": "node --test tests/*.test.cjs",
-    "package:win": "npm run build && electron-builder --win portable --x64 --publish never",
+    "package:win": "npm run build && electron-builder --win nsis portable --x64 --publish never",
     "package:mac": "npm run build:mac-helper && npm run build && electron-builder --mac dir --publish never",
     "build:mac-helper": "node scripts/build-mac-helper.mjs",
-    "package:mac:dmg": "npm run build:mac-helper && npm run build && electron-builder --mac dmg --publish never",
+    "package:mac:dmg": "npm run build:mac-helper && npm run build && electron-builder --mac dmg zip --publish never",
     "postinstall": "node node_modules/electron/install.js",
     "test:mac": "node scripts/test-mac.cjs",
     "prestart": "node scripts/build-mac-helper.mjs",
     "test:desktop": "node scripts/test-handoff.cjs",
+    "test:i18n": "node scripts/test-i18n.cjs",
     "test:providers": "npm run build:mac-helper && node scripts/test-providers.cjs"
   },
   "build": {
@@ -33,19 +34,23 @@
     ],
     "asar": true,
     "win": {
-      "target": "portable",
+      "target": [
+        "nsis",
+        "portable"
+      ],
       "artifactName": "BooksPlus-${version}-${arch}.${ext}",
       "icon": "desktop/icon.png",
       "signExecutable": "false"
     },
     "mac": {
+      "artifactName": "BooksPlus-${version}-${arch}.${ext}",
       "category": "public.app-category.books",
       "target": "dir",
       "minimumSystemVersion": "13.0",
       "icon": "desktop/icon.png",
       "hardenedRuntime": true,
       "extendInfo": {
-        "NSHumanReadableCopyright": "Copyright \u00a9 EveningStudy",
+        "NSHumanReadableCopyright": "Copyright © EveningStudy",
         "NSDocumentsFolderUsageDescription": "Books+ accesses the cloud library folder you select.",
         "NSDownloadsFolderUsageDescription": "Books+ imports books you select."
       },
@@ -62,10 +67,28 @@
     "electronDist": "node_modules/electron/dist",
     "asarUnpack": [
       "node_modules/sherpa-onnx*/**/*"
+    ],
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "BooksPlus-Setup-${version}-${arch}.${ext}"
+    },
+    "portable": {
+      "artifactName": "BooksPlus-${version}-${arch}.${ext}"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "EveningStudy",
+        "repo": "books-plus"
+      }
     ]
   },
   "dependencies": {
     "@xmldom/xmldom": "^0.9.12",
+    "electron-updater": "^6.8.11",
     "epubjs": "^0.3.93",
     "fast-xml-parser": "^5.11.2",
     "jszip": "^3.10.2",
@@ -75,6 +98,7 @@
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "sanitize-html": "^2.18.1",
+    "semver": "^7.8.5",
     "sherpa-onnx-node": "1.13.8",
     "tar": "^7.5.22",
     "unbzip2-stream": "^1.4.3",

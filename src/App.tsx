@@ -1,3 +1,5 @@
+import { t, tm, useLocale } from "./i18n";
+import { LanguageSwitcher } from "./components/LanguageSwitcher";
 import {
   lazy,
   Suspense,
@@ -30,10 +32,12 @@ import { Settings } from "./components/Settings";
 import { migrateVoicePreferences } from "./speech/voicePreferences";
 import { IconButton } from "./components/Primitives";
 import { MacSync } from "./components/MacSync";
+import { UpdateNotice } from "./components/Updates";
 const Reader = lazy(() =>
   import("./components/Reader").then((module) => ({ default: module.Reader })),
 );
 export default function App() {
+  useLocale();
   const [data, setData] = useState<LibraryData | null>(null);
   const [settings, setSettings] = useState<AppSettings>({
     reading: readingDefaults,
@@ -44,7 +48,7 @@ export default function App() {
   const [settingsTab, setSettingsTab] = useState<string | null>(null);
   const [voices, setVoices] = useState<Voice[]>([]);
   const [message, setMessage] = useState("");
-  const [sync, setSync] = useState("正在读取书库…");
+  const [sync, setSync] = useState(t("正在读取书库…"));
   const [busy, setBusy] = useState(true);
   const [previewing, setPreviewing] = useState(false);
   const settingsRef = useRef(settings);
@@ -63,8 +67,8 @@ export default function App() {
   }, []);
   const reportSync = useCallback((result: SyncResult) => {
     const text = result.synced
-      ? "进度已写入云盘文件夹"
-      : result.error || "进度已在本机保存 · 等待同步";
+      ? t("进度已写入云盘文件夹")
+      : result.error || t("进度已在本机保存 · 等待同步");
     syncStatus.current = { root: libraryRoot.current, text };
     setSync(text);
   }, []);
@@ -74,7 +78,7 @@ export default function App() {
     setSync(
       value.syncError ||
         (syncStatus.current?.root === value.root && syncStatus.current.text) ||
-        `已读取 ${value.books.length} 本图书`,
+        t("已读取 {0} 本图书", [value.books.length]),
     );
   }, []);
   const refreshing = useRef(false);
@@ -85,7 +89,9 @@ export default function App() {
     try {
       applyData(await window.reader.load());
     } catch (e) {
-      setMessage(`无法读取书库：${e instanceof Error ? e.message : String(e)}`);
+      setMessage(
+        t("无法读取书库：{0}", [e instanceof Error ? e.message : String(e)]),
+      );
     } finally {
       refreshing.current = false;
       setBusy(false);
@@ -100,7 +106,9 @@ export default function App() {
         setMessage("");
       }
     } catch (e) {
-      setMessage(`无法连接书库：${e instanceof Error ? e.message : String(e)}`);
+      setMessage(
+        t("无法连接书库：{0}", [e instanceof Error ? e.message : String(e)]),
+      );
     } finally {
       setBusy(false);
     }
@@ -140,7 +148,7 @@ export default function App() {
           loaded = library.value.settings;
         } else
           setMessage(
-            `书库尚未连接：${library.reason?.message || library.reason}`,
+            t("书库尚未连接：{0}", [library.reason?.message || library.reason]),
           );
         const found =
           voicesResult.status === "fulfilled" ? voicesResult.value.voices : [];
@@ -194,7 +202,7 @@ export default function App() {
     if (patch.mac) return; // Mode was persisted by the dedicated Mac settings API.
     window.reader
       ?.saveSettings(patch)
-      .catch((e) => setMessage(`设置未能保存：${e.message}`));
+      .catch((e) => setMessage(t("设置未能保存：{0}", [e.message])));
   }, []);
   const saveBook = useCallback(
     async (
@@ -260,7 +268,7 @@ export default function App() {
         const fresh = await window.reader.load();
         applyData(fresh);
         if (!fresh.books.some((b) => b.id === book.id && b.valid))
-          throw Error("书目已改变，请刷新书库");
+          throw Error(t("书目已改变，请刷新书库"));
         setActive(book.id);
         setMessage("");
       } catch (e) {
@@ -275,7 +283,7 @@ export default function App() {
       if (result) {
         applyData(result.data);
         setMessage(
-          `已加入 ${result.imported.length} 本图书` +
+          t("已加入 {0} 本图书", [result.imported.length]) +
             (result.failed.length
               ? "；" +
                 result.failed.map((f) => `${f.name}：${f.error}`).join("；")
@@ -287,6 +295,23 @@ export default function App() {
     }
   }, [applyData, showError]);
   const openSettings = useCallback((tab: string) => setSettingsTab(tab), []);
+  const deleteBook = useCallback(
+    async (id: string, deleted: boolean) => {
+      try {
+        const result = await window.reader!.setDeleted(id, deleted);
+        applyData(result.data);
+        reportSync(result.sync);
+        setMessage(
+          deleted
+            ? t("已移到最近删除，可随时恢复。Apple Books 中的原书仍保留。")
+            : t("图书已恢复，进度和批注已保留"),
+        );
+      } catch (e) {
+        showError(e);
+      }
+    },
+    [applyData, reportSync, showError],
+  );
   const closeSettings = useCallback(() => setSettingsTab(null), []);
   const closeBook = useCallback(() => {
     if (activeRef.current)
@@ -300,15 +325,17 @@ export default function App() {
       const book = data?.books.find((b) => b.id === id);
       try {
         setMessage(
-          action === "release" ? "正在释放本地空间…" : "正在更新离线下载…",
+          action === "release"
+            ? t("正在释放本地空间…")
+            : t("正在更新离线下载…"),
         );
         if (action === "release") await window.reader.release(id);
         else await window.reader.offline(id, !book?.storage.offline);
         await refresh();
         setMessage(
           action === "release"
-            ? "已释放本地正文，书籍与进度仍在云端"
-            : "离线设置已更新",
+            ? t("已释放本地正文，书籍与进度仍在云端")
+            : t("离线设置已更新"),
         );
       } catch (e) {
         showError(e instanceof Error ? e.message : String(e));
@@ -340,8 +367,8 @@ export default function App() {
         text: language.startsWith("en")
           ? "Open a book, and let the story come to you."
           : language.startsWith("ja")
-            ? "本を開いて、物語に耳を傾けましょう。"
-            : "打开一本书，让故事慢慢读给你听。",
+            ? t("本を開いて、物語に耳を傾けましょう。")
+            : t("打开一本书，让故事慢慢读给你听。"),
       });
       if (token !== previewGeneration.current) return;
       const player = (preview.current = new Audio(result.url));
@@ -351,25 +378,37 @@ export default function App() {
       player.onended = () => setPreviewing(false);
       player.onerror = () => {
         setPreviewing(false);
-        setMessage("试听音频无法播放");
+        setMessage(t("试听音频无法播放"));
       };
       await player.play();
     } catch (e) {
       if (token !== previewGeneration.current) return;
-      setMessage(`试听失败：${e instanceof Error ? e.message : String(e)}`);
+      setMessage(
+        t("试听失败：{0}", [e instanceof Error ? e.message : String(e)]),
+      );
       setPreviewing(false);
     }
   };
   const activeBook = data?.books.find((b) => b.id === active);
+  useEffect(() => {
+    if (active && data && !data.books.some((b) => b.id === active)) {
+      setActive(null);
+      setMessage(t("这本书已在其他设备删除，可在最近删除中恢复。"));
+    }
+  }, [active, data]);
   return (
     <>
+      {!data || settings.mac?.mode === "sync" ? (
+        <div className="welcome-language"><LanguageSwitcher /></div>
+      ) : null}
+      <UpdateNotice onOpen={() => setSettingsTab("updates")} />
       {settings.mac?.mode === "sync" ? (
         <main className="sync-dashboard">
-          <h1>Books+ · Apple Books 同步</h1>
-          <p>关闭此窗口后继续在菜单栏同步。</p>
+          <h1>{t("Books+ · Apple Books 同步")}</h1>
+          <p>{t("关闭此窗口后继续在菜单栏同步。")}</p>
           <div className="connection">
-            <span>{data?.root || "尚未连接书库"}</span>
-            <button onClick={choose}>更改云盘书库…</button>
+            <span>{data?.root || t("尚未连接书库")}</span>
+            <button onClick={choose}>{t("更改云盘书库…")}</button>
           </div>
           <MacSync
             onError={showError}
@@ -381,7 +420,7 @@ export default function App() {
           fallback={
             <main className="welcome-screen">
               <LoaderCircle className="spin" />
-              <p>正在打开阅读器…</p>
+              <p>{t("正在打开阅读器…")}</p>
             </main>
           }
         >
@@ -411,16 +450,18 @@ export default function App() {
           onSettings={() => setSettingsTab("library")}
           onStatus={onStatus}
           onStorage={changeStorage}
+          onDelete={deleteBook}
         />
       ) : (
         <main className="welcome-screen">
           <div className="welcome-icon">
             <BookOpen size={48} />
           </div>
-          <h1>Books+ · 接着读。</h1>
+          <h1>{t("Books+ · 接着读。")}</h1>
           <p>
-            连接云端书库，
-            <br />在 Mac 和 Windows 接着读，也可以听。
+            {t("连接云端书库，")}
+            <br />
+            {t("在 Mac 和 Windows 接着读，也可以听。")}
           </p>
           {busy ? (
             <LoaderCircle className="spin" size={28} />
@@ -431,15 +472,15 @@ export default function App() {
               disabled={!window.reader}
             >
               <FolderOpen size={17} />
-              选择云端书库文件夹
+              {t("选择云端书库文件夹")}
             </button>
           )}
           {!window.reader ? (
             <p className="help">
-              这是桌面应用。请运行 npm run dev，或打开打包后的 Books+。
+              {t("这是桌面应用。请运行 npm run dev，或打开打包后的 Books+。")}
             </p>
           ) : null}
-          <small>多格式阅读 · 云端进度 · 神经语音 · 桌面字幕</small>
+          <small>{t("多格式阅读 · 云端进度 · 神经语音 · 桌面字幕")}</small>
         </main>
       )}
       {settingsTab ? (
@@ -459,8 +500,8 @@ export default function App() {
       {message ? (
         <div className="toast" role="status">
           <AlertCircle size={18} />
-          <p>{message}</p>
-          <IconButton label="关闭提示" onClick={() => setMessage("")}>
+          <p>{tm(message)}</p>
+          <IconButton label={t("关闭提示")} onClick={() => setMessage("")}>
             <X size={16} />
           </IconButton>
         </div>
@@ -468,7 +509,7 @@ export default function App() {
       {previewing ? (
         <div className="preview-status" role="status">
           <LoaderCircle size={14} className="spin" />
-          正在试听声音
+          {t("正在试听声音")}
           <button
             onClick={() => {
               preview.current?.pause();
@@ -476,7 +517,7 @@ export default function App() {
               setPreviewing(false);
             }}
           >
-            停止
+            {t("停止")}
           </button>
         </div>
       ) : null}

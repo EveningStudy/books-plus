@@ -1,3 +1,5 @@
+import { t, tm, useLocale } from "../i18n";
+import { LanguageSwitcher } from "./LanguageSwitcher";
 import {
   memo,
   useDeferredValue,
@@ -25,9 +27,10 @@ import {
   Headphones,
   Plus,
   ArrowDownWideNarrow,
+  Trash2,
 } from "lucide-react";
 import type { BookItem, LibraryData } from "../types";
-import { IconButton } from "./Primitives";
+import { Dialog, IconButton } from "./Primitives";
 const coverCache = new Map<string, string | null>();
 let coverQueue: (() => Promise<void>)[] = [],
   coverBusy = 0;
@@ -45,6 +48,7 @@ function pump() {
   }
 }
 function Cover({ book }: { book: BookItem }) {
+  useLocale();
   const [url, setUrl] = useState(coverCache.get(book.coverKey));
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -88,11 +92,15 @@ function Cover({ book }: { book: BookItem }) {
         <div className="cover-fallback">
           <small>{book.format.toUpperCase()}</small>
           <strong>{book.title}</strong>
-          <span>{book.author}</span>
+          <span>
+            {book.author === "未知作者" ? t("未知作者") : book.author}
+          </span>
         </div>
       )}
       <span className="spine" />
-      {!book.valid ? <span className="unvalidated">未验证备份</span> : null}
+      {!book.valid ? (
+        <span className="unvalidated">{t("未验证备份")}</span>
+      ) : null}
     </div>
   );
 }
@@ -101,22 +109,26 @@ const BookCard = memo(function BookCard({
   onOpen,
   onStatus,
   onStorage,
+  onDelete,
 }: {
   book: BookItem;
   onOpen: (b: BookItem) => void;
   onStatus: (id: string, status: BookItem["state"]["status"]) => void;
   onStorage: (id: string, action: "offline" | "release") => void;
+  onDelete: (book: BookItem) => void;
 }) {
+  useLocale();
   const progress = Math.round(
     (book.state.reading?.progress ?? book.appleProgress) * 100,
   );
+  const deleted = !!book.state.lifecycle?.deleted;
   return (
     <article className="book-card">
       <button
         className="open-book"
         onClick={() => onOpen(book)}
-        aria-label={`阅读 ${book.title}`}
-        disabled={!book.valid}
+        aria-label={t("阅读 {0}", [book.title])}
+        disabled={!book.valid || deleted}
       >
         <Cover book={book} />
       </button>
@@ -125,36 +137,38 @@ const BookCard = memo(function BookCard({
           className="book-title"
           title={book.title}
           onClick={() => onOpen(book)}
-          disabled={!book.valid}
+          disabled={!book.valid || deleted}
         >
           {book.title}
         </button>
-        <p>{book.author}</p>
+        <p>{book.author === "未知作者" ? t("未知作者") : book.author}</p>
         <span
           className={"book-storage " + book.storage.state}
           title={
             book.storage.supported
-              ? "由云盘客户端管理正文下载"
-              : "此云盘未提供按需释放接口"
+              ? t("由云盘客户端管理正文下载")
+              : t("此云盘未提供按需释放接口")
           }
         >
           <Cloud size={11} />
           {book.storage.offline
-            ? "保留离线"
+            ? t("保留离线")
             : book.storage.state === "cloud"
-              ? "云端"
+              ? t("云端")
               : book.storage.state === "downloaded"
-                ? "已下载"
+                ? t("已下载")
                 : book.storage.state === "local"
-                  ? "本地文件"
+                  ? t("本地文件")
                   : book.storage.state === "missing"
-                    ? "等待云盘同步"
-                    : "状态待确认"}
+                    ? t("等待云盘同步")
+                    : t("状态待确认")}
         </span>
         <div
           className="book-progress"
           title={
-            book.state.reading ? "阅读器进度" : "从 Apple Books 导入的进度"
+            book.state.reading
+              ? t("阅读器进度")
+              : t("从 Apple Books 导入的进度")
           }
         >
           <span>
@@ -166,45 +180,56 @@ const BookCard = memo(function BookCard({
         </div>
       </div>
       <details className="book-menu">
-        <summary aria-label={`${book.title} 的更多选项`}>
+        <summary aria-label={t("{0} 的更多选项", [book.title])}>
           <MoreHorizontal size={18} />
         </summary>
         <div>
-          <button
-            onClick={() => onStorage(book.id, "offline")}
-            disabled={!book.valid}
-          >
-            {book.storage.offline ? "取消保留离线" : "下载并保留离线"}
-          </button>
-          <button
-            onClick={() => onStorage(book.id, "release")}
-            disabled={
-              !book.storage.supported ||
-              book.storage.offline ||
-              book.storage.state === "cloud"
-            }
-          >
-            释放本地空间
-          </button>
-          <button
-            onClick={() =>
-              onStatus(book.id, { favorite: !book.state.status?.favorite })
-            }
-          >
-            {book.state.status?.favorite ? "移出我的收藏" : "加入我的收藏"}
-          </button>
-          <button
-            onClick={() =>
-              onStatus(book.id, { want: !book.state.status?.want })
-            }
-          >
-            {book.state.status?.want ? "移出想读" : "加入想读"}
-          </button>
-          <button
-            onClick={() => onStatus(book.id, { finished: !book.finished })}
-          >
-            {book.finished ? "标记为未读完" : "标记为已读完"}
-          </button>
+          {deleted ? (
+            <button onClick={() => onDelete(book)}>{t("恢复图书")}</button>
+          ) : (
+            <>
+              <button
+                onClick={() => onStorage(book.id, "offline")}
+                disabled={!book.valid}
+              >
+                {book.storage.offline ? t("取消保留离线") : t("下载并保留离线")}
+              </button>
+              <button
+                onClick={() => onStorage(book.id, "release")}
+                disabled={
+                  !book.storage.supported ||
+                  book.storage.offline ||
+                  book.storage.state === "cloud"
+                }
+              >
+                {t("释放本地空间")}
+              </button>
+              <button
+                onClick={() =>
+                  onStatus(book.id, { favorite: !book.state.status?.favorite })
+                }
+              >
+                {book.state.status?.favorite
+                  ? t("移出我的收藏")
+                  : t("加入我的收藏")}
+              </button>
+              <button
+                onClick={() =>
+                  onStatus(book.id, { want: !book.state.status?.want })
+                }
+              >
+                {book.state.status?.want ? t("移出想读") : t("加入想读")}
+              </button>
+              <button
+                onClick={() => onStatus(book.id, { finished: !book.finished })}
+              >
+                {book.finished ? t("标记为未读完") : t("标记为已读完")}
+              </button>
+              <button className="danger-text" onClick={() => onDelete(book)}>
+                {t("删除图书…")}
+              </button>
+            </>
+          )}
         </div>
       </details>
     </article>
@@ -217,6 +242,7 @@ const nav = [
   ["finished", "已读完", CircleCheck],
   ["pdf", "PDF", FileText],
   ["favorites", "我的收藏", Star],
+  ["trash", "最近删除", Trash2],
 ] as const;
 export function Library({
   data,
@@ -229,6 +255,7 @@ export function Library({
   onSettings,
   onStatus,
   onStorage,
+  onDelete,
 }: {
   data: LibraryData;
   sync: string;
@@ -240,7 +267,15 @@ export function Library({
   onSettings: () => void;
   onStatus: (id: string, status: BookItem["state"]["status"]) => void;
   onStorage: (id: string, action: "offline" | "release") => void;
+  onDelete: (id: string, deleted: boolean) => Promise<void>;
 }) {
+  const locale = useLocale();
+  const [deleting, setDeleting] = useState<BookItem | null>(null);
+  const [deletingBusy, setDeletingBusy] = useState(false);
+  const handleDelete = (book: BookItem) => {
+    if (book.state.lifecycle?.deleted) void onDelete(book.id, false);
+    else setDeleting(book);
+  };
   const [tab, setTab] = useState("all");
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
@@ -265,7 +300,7 @@ export function Library({
   );
   const books = useMemo(() => {
     const q = deferredQuery.toLocaleLowerCase().trim();
-    return data.books
+    return (tab === "trash" ? data.trash || [] : data.books)
       .filter((b) => {
         if (q && !`${b.title} ${b.author}`.toLocaleLowerCase().includes(q))
           return false;
@@ -282,18 +317,18 @@ export function Library({
       })
       .sort((a, b) =>
         sort === "title"
-          ? a.title.localeCompare(b.title, "zh-CN")
+          ? a.title.localeCompare(b.title, locale === "en" ? "en" : "zh-CN")
           : sort === "author"
-            ? a.author.localeCompare(b.author, "zh-CN")
+            ? a.author.localeCompare(b.author, locale === "en" ? "en" : "zh-CN")
             : sort === "progress"
               ? (b.state.reading?.progress ?? b.appleProgress) -
                 (a.state.reading?.progress ?? a.appleProgress)
               : (b.lastOpened || "").localeCompare(a.lastOpened || ""),
       );
-  }, [data.books, tab, deferredQuery, sort]);
+  }, [data.books, data.trash, tab, deferredQuery, sort, locale]);
   const title = tab.startsWith("collection:")
     ? tab.slice(11)
-    : nav.find((n) => n[0] === tab)?.[1] || "全部图书";
+    : nav.find((n) => n[0] === tab)?.[1] || t("全部图书");
   return (
     <div className="library-layout">
       <aside className="sidebar">
@@ -311,14 +346,14 @@ export function Library({
               onClick={() => setTab(id)}
             >
               <Icon />
-              <span>{label}</span>
+              <span>{t(label)}</span>
               {id === "all" ? <small>{data.books.length}</small> : null}
             </button>
           ))}
         </nav>
         {collections.length ? (
           <div className="collections">
-            <h3>我的精选集</h3>
+            <h3>{t("我的精选集")}</h3>
             {collections.map((c) => (
               <button
                 className={tab === "collection:" + c ? "selected" : ""}
@@ -335,27 +370,32 @@ export function Library({
           <div className="cloud-status">
             <Cloud size={20} />
             <div>
-              <span>云端书库</span>
-              <small title={sync}>{sync}</small>
+              <span>{t("云端书库")}</span>
+              <small title={tm(sync)}>{tm(sync)}</small>
             </div>
-            <IconButton label="刷新书库" disabled={busy} onClick={onRefresh}>
+            <IconButton
+              label={t("刷新书库")}
+              disabled={busy}
+              onClick={onRefresh}
+            >
               <RefreshCw className={busy ? "spin" : ""} size={14} />
             </IconButton>
           </div>
           <button onClick={onSettings}>
             <Settings />
-            <span>设置</span>
+            <span>{t("设置")}</span>
           </button>
+          <LanguageSwitcher />
         </div>
       </aside>
       <main className="library-main">
         <header className="library-header">
           <div>
-            <h1>{title}</h1>
+            <h1>{tab.startsWith("collection:") ? title : t(title)}</h1>
             <p>
               {deferredQuery
-                ? `找到 ${books.length} 本图书`
-                : `共 ${books.length} 本图书`}
+                ? t("找到 {0} 本图书", [books.length])
+                : t("共 {0} 本图书", [books.length])}
             </p>
           </div>
           <label className="search-field">
@@ -363,36 +403,36 @@ export function Library({
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="搜索图书或作者"
-              aria-label="搜索图书或作者"
+              placeholder={t("搜索图书或作者")}
+              aria-label={t("搜索图书或作者")}
             />
             {query ? (
-              <button onClick={() => setQuery("")} aria-label="清除搜索">
+              <button onClick={() => setQuery("")} aria-label={t("清除搜索")}>
                 ×
               </button>
             ) : null}
           </label>
         </header>
         <div className="shelf-toolbar">
-          <span>{tab === "recent" ? "接着上次的地方读下去" : ""}</span>
+          <span>{tab === "recent" ? t("接着上次的地方读下去") : ""}</span>
           <div>
             <ArrowDownWideNarrow size={15} />
             <select
               value={sort}
-              aria-label="图书排序"
+              aria-label={t("图书排序")}
               onChange={(e) => {
                 setSort(e.target.value);
                 window.reader?.saveSettings({ sort: e.target.value });
               }}
             >
-              <option value="recent">最近阅读</option>
-              <option value="title">书名</option>
-              <option value="author">作者</option>
-              <option value="progress">阅读进度</option>
+              <option value="recent">{t("最近阅读")}</option>
+              <option value="title">{t("书名")}</option>
+              <option value="author">{t("作者")}</option>
+              <option value="progress">{t("阅读进度")}</option>
             </select>
             <div className="segmented">
               <IconButton
-                label="网格视图"
+                label={t("网格视图")}
                 active={view === "grid"}
                 onClick={() => {
                   setView("grid");
@@ -402,7 +442,7 @@ export function Library({
                 <LayoutGrid size={17} />
               </IconButton>
               <IconButton
-                label="列表视图"
+                label={t("列表视图")}
                 active={view === "list"}
                 onClick={() => {
                   setView("list");
@@ -423,21 +463,22 @@ export function Library({
                 onOpen={onOpen}
                 onStatus={onStatus}
                 onStorage={onStorage}
+                onDelete={handleDelete}
               />
             ))}
           </div>
         ) : (
           <div className="empty-state">
             <BookOpen size={44} />
-            <h2>{query ? "没有找到这本书" : "这里还没有图书"}</h2>
+            <h2>{query ? t("没有找到这本书") : t("这里还没有图书")}</h2>
             <p>
               {query
-                ? "试试其他书名或作者。"
+                ? t("试试其他书名或作者。")
                 : tab === "want"
-                  ? "在图书的更多选项中，将它加入想读。"
+                  ? t("在图书的更多选项中，将它加入想读。")
                   : tab === "favorites"
-                    ? "在图书的更多选项中，将它加入收藏。"
-                    : "换一个分类看看。"}
+                    ? t("在图书的更多选项中，将它加入收藏。")
+                    : t("换一个分类看看。")}
             </p>
             <button
               onClick={() => {
@@ -445,20 +486,59 @@ export function Library({
                 setQuery("");
               }}
             >
-              查看全部图书
+              {t("查看全部图书")}
             </button>
           </div>
         )}
         <footer className="library-footer">
           <span>
-            {data.books.filter((b) => !b.valid).length} 本未验证备份保留在书库中
+            {t("{0} 本未验证备份保留在书库中", [
+              data.books.filter((b) => !b.valid).length,
+            ])}
           </span>
           <button onClick={onImport} disabled={busy}>
             <Plus size={14} />
-            加入图书
+            {t("加入图书")}
           </button>
         </footer>
       </main>
+      {deleting ? (
+        <Dialog
+          title={t("删除图书")}
+          onClose={() => {
+            if (!deletingBusy) setDeleting(null);
+          }}
+        >
+          <div className="delete-confirm">
+            <p>{t("将《{0}》移到最近删除？", [deleting.title])}</p>
+            <p className="help">
+              {t(
+                "此操作会同步到连接此书库的新版 Books+。原文件、阅读进度和批注保留，可在最近删除中恢复。不会删除 Apple Books（含 iPhone）里的原书。",
+              )}
+            </p>
+            <div className="dialog-actions">
+              <button disabled={deletingBusy} onClick={() => setDeleting(null)}>
+                {t("取消")}
+              </button>
+              <button
+                className="danger-button"
+                disabled={deletingBusy}
+                onClick={async () => {
+                  setDeletingBusy(true);
+                  try {
+                    await onDelete(deleting.id, true);
+                    setDeleting(null);
+                  } finally {
+                    setDeletingBusy(false);
+                  }
+                }}
+              >
+                {deletingBusy ? t("正在删除…") : t("移到最近删除")}
+              </button>
+            </div>
+          </div>
+        </Dialog>
+      ) : null}
     </div>
   );
 }
