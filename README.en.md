@@ -187,3 +187,7 @@ See the [development docs](docs/DEVELOPMENT.md) (in Chinese) for packaging, test
 Books+'s own code is released under the [MIT License](LICENSE). Third-party libraries, voice models and Calibre keep their own licenses, listed in [THIRD_PARTY.md](THIRD_PARTY.md).
 
 This project isn't affiliated with Apple or Microsoft. The book titles, covers and text in the screenshots are sample content made for this project.
+
+## Friends
+
+[LINUX DO](https://linux.do)

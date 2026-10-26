@@ -187,3 +187,7 @@ npm run dev
 Books+ 自己的代码使用 [MIT](LICENSE) 许可。用到的第三方库、语音模型和 Calibre 各有各的许可，列在 [THIRD_PARTY.md](THIRD_PARTY.md) 里。
 
 本项目与 Apple、Microsoft 无关。截图里的书名、封面和正文都是专门做的示例。
+
+## 友链
+
+[LINUX DO](https://linux.do)
