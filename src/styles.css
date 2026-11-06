@@ -2018,3 +2018,72 @@ html[lang="en"] .settings-tabs > button {
 html[lang="en"] .setting-row > span {
   max-width: 58%;
 }
+
+.source-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--border);
+}
+.source-card > svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: #a07754;
+}
+.source-details {
+  min-width: 0;
+  flex: 1;
+}
+.source-path,
+.source-error {
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  margin: 6px 0;
+}
+.source-details > small {
+  display: block;
+  color: #77716a;
+}
+.source-details > button {
+  padding: 8px 0 0;
+  font-size: 12px;
+  color: #a04535;
+}
+.source-error {
+  color: #b32b28;
+}
+.source-remove-confirm {
+  margin-top: 8px;
+  padding: 10px;
+  border-radius: 6px;
+  background: #8881;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.source-remove-confirm button {
+  margin-right: 14px;
+  margin-top: 8px;
+}
+.source-add {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  padding: 10px 0;
+  color: var(--accent);
+}
+.source-settings select {
+  max-width: 52%;
+  text-overflow: ellipsis;
+}
+.source-filter select {
+  max-width: 220px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 8px;
+}
+.source-filter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}

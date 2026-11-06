@@ -21,6 +21,8 @@ import { ModelManager } from "./ModelManager";
 import { FormatSettings } from "./FormatSettings";
 import { MacSync } from "./MacSync";
 import { Updates } from "./Updates";
+import { Sources } from "./Sources";
+import type { LibraryData } from "../types";
 export function Settings({
   initialTab = "voice",
   settings,
@@ -32,6 +34,8 @@ export function Settings({
   onPreview,
   onShowOverlay,
   onError,
+  data,
+  onData,
 }: {
   initialTab?: string;
   settings: AppSettings;
@@ -43,6 +47,8 @@ export function Settings({
   onPreview: () => void;
   onShowOverlay: () => void;
   onError: (message: string) => void;
+  data: LibraryData | null;
+  onData: (data: LibraryData) => void;
 }) {
   useLocale();
   const [tab, setTab] = useState(initialTab);
@@ -118,15 +124,7 @@ export function Settings({
         ) : null}
         {tab === "library" ? (
           <>
-            <h3>{t("云端书库")}</h3>
-            <div className="connection">
-              <Cloud />
-              <div>
-                <strong>Books Export</strong>
-                <p>{root}</p>
-              </div>
-              <button onClick={onChoose}>{t("更改…")}</button>
-            </div>
+            <Sources data={data} onData={onData} onError={onError} />
             <p className="help">
               {t(
                 "支持 iCloud Drive、OneDrive、Dropbox、Google Drive、坚果云、Syncthing 等客户端同步的本地文件夹。Mac 与 Windows 请选择同一份云端书库的本地副本， 不需要在 Books+ 登录云盘。书籍与 reader-state 都要同步；建议将 JSON 目录保留离线。",

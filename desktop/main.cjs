@@ -17,7 +17,7 @@ const path = require("node:path");
 const fs = require("node:fs/promises");
 const { pathToFileURL } = require("node:url");
 const crypto = require("node:crypto");
-const { Library } = require("./library.cjs");
+const { SourceLibrary, Shelf } = require("./shelf.cjs");
 const { Speech } = require("./speech.cjs");
 const { Models } = require("./models.cjs");
 const { CloudFiles } = require("./cloud-files.cjs");
@@ -52,6 +52,7 @@ app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
 let main,
   overlay,
   library,
+  shelf,
   speech,
   overlayState = {},
   locked = false;
@@ -175,7 +176,13 @@ async function chooseLibrary() {
   appleSync?.stop();
   await appleSync?.idle();
   try {
-    return await library.configure(result.filePaths[0]);
+    const root = await fs.realpath(result.filePaths[0]);
+    const existing = shelf.list().find((source) => source.root === root);
+    if (!existing) await shelf.add(root);
+    else await shelf.prepare(existing.id);
+    return await shelf.setBridge(
+      existing?.id || shelf.list().find((source) => source.root === root).id,
+    );
   } finally {
     appleSync?.start();
     updateTray();
@@ -378,7 +385,7 @@ app
     await fs.mkdir(userDir, { recursive: true });
     const cloudScript = path.join(userDir, "cloud-files.ps1");
     await fs.copyFile(path.join(__dirname, "cloud-files.ps1"), cloudScript);
-    library = await new Library(userDir, {
+    library = await new SourceLibrary(userDir, {
       cloud: new CloudFiles(cloudScript),
     }).init();
     if (isMac && !app.isPackaged)
@@ -388,6 +395,7 @@ app
       );
     if (process.env.READER_LIBRARY_ROOT)
       await library.configure(process.env.READER_LIBRARY_ROOT);
+    shelf = await new Shelf(library).init();
     if (isMac && !library.config.settings?.mac?.mode) {
       const result = await dialog.showMessageBox({
         type: "question",
@@ -473,7 +481,29 @@ app
           })
         : new Response("Not found", { status: 404 });
     });
-    handle("library:load", () => library.load());
+    handle("library:load", () => shelf.load());
+    handle("sources:add", async () => {
+      const result = await dialog.showOpenDialog({
+        title: t("添加书库文件夹"),
+        properties: ["openDirectory", "createDirectory"],
+      });
+      return result.canceled ? null : shelf.add(result.filePaths[0]);
+    });
+    handle("sources:remove", (id) => shelf.remove(id));
+    handle("sources:import", (id) => shelf.setImportSource(id));
+    handle("sources:bridge", async (id) => {
+      const source = shelf.list().find((s) => s.id === id);
+      if (!source) throw Error(t("未知文件夹"));
+      if (isMac) await validateCloudRoot(source.root);
+      appleSync?.stop();
+      await appleSync?.idle();
+      try {
+        return await shelf.setBridge(id);
+      } finally {
+        appleSync?.start();
+        updateTray();
+      }
+    });
     const mode = await updateMode(app);
     updates = new Updates({
       updater: ["automatic", "migration"].includes(mode)
@@ -505,8 +535,8 @@ app
         "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles",
       ),
     );
-    handle("book:read", (id) => library.read(id));
-    handle("library:import", async () => {
+    handle("book:read", (id) => shelf.read(id));
+    handle("library:import", async (sourceId) => {
       const { BUILTIN, CALIBRE } = require("./formats.cjs");
       const result = await dialog.showOpenDialog(main, {
         title: t("加入图书到云端书库"),
@@ -515,7 +545,7 @@ app
           { name: t("电子书与文档"), extensions: [...BUILTIN, ...CALIBRE] },
         ],
       });
-      return result.canceled ? null : library.import(result.filePaths);
+      return result.canceled ? null : shelf.import(result.filePaths, sourceId);
     });
     handle(
       "formats:info",
@@ -533,15 +563,16 @@ app
     handle("formats:download", () =>
       shell.openExternal("https://calibre-ebook.com/download"),
     );
-    handle("book:closed", (id) => library.closed(id));
-    handle("book:offline", (id, keep) => library.offline(id, !!keep));
-    handle("book:release", (id) => library.release(id));
+    handle("book:closed", (id) => shelf.closed(id));
+    handle("book:offline", (id, keep) => shelf.offline(id, !!keep));
+    handle("book:release", (id) => shelf.release(id));
     handle("book:delete", async (id, deleted) => {
-      const sync = await library.setDeleted(id, deleted);
-      appleSync?.sync().catch(() => {});
-      return { data: await library.load(), sync };
+      const sync = await shelf.setDeleted(id, deleted);
+      if (shelf.route(id).sourceId === shelf.bridgeId)
+        appleSync?.sync().catch(() => {});
+      return { data: await shelf.load(), sync };
     });
-    handle("storage:sweep", () => library.sweep());
+    handle("storage:sweep", () => shelf.sweep());
     handle("models:list", () => models.list());
     handle("models:install", (id) => models.install(id));
     handle("models:cancel", (id) => models.cancel(id));
@@ -579,7 +610,7 @@ app
       ).toDataURL();
     });
     handle("book:cover", async (id) => {
-      const url = await library.cover(id);
+      const url = await shelf.cover(id);
       if (!url) return null;
       const image = nativeImage.createFromDataURL(url);
       if (image.isEmpty()) return null;
@@ -587,7 +618,7 @@ app
         ? image.resize({ width: 320, quality: "good" }).toDataURL()
         : url;
     });
-    handle("book:save", (id, patch) => library.save(id, patch));
+    handle("book:save", (id, patch) => shelf.save(id, patch));
     handle("locale:get", () => language(), true);
     handle("locale:set", async (value) => {
       if (value !== "zh" && value !== "en") throw Error(t("语言设置无效"));
@@ -662,19 +693,18 @@ app
     )
       createMain();
     const timer = setInterval(() => {
-      if (library.device.updatedAt)
-        library.queue = library.queue
-          .then(() => library.flush())
-          .then((result) => main?.webContents.send("sync:status", result))
-          .catch(() => {});
+      shelf
+        .flush()
+        .then((result) => main?.webContents.send("sync:status", result))
+        .catch(() => {});
     }, 30000);
     timer.unref();
     const sweepTimer = setInterval(
-      () => library.sweep().catch(() => {}),
+      () => shelf.sweep().catch(() => {}),
       3600000,
     );
     sweepTimer.unref();
-    setTimeout(() => library.sweep().catch(() => {}), 10000).unref();
+    setTimeout(() => shelf.sweep().catch(() => {}), 10000).unref();
   })
   .catch((error) => {
     showNativeError(error);
@@ -702,6 +732,8 @@ app.on("before-quit", (event) => {
     }
     const pending = Promise.all([
       appleSync?.idle(),
+      shelf?.queue,
+      shelf?.idle(),
       library?.queue,
       library?.importQueue,
       library?.downloadQueue,
@@ -713,8 +745,7 @@ app.on("before-quit", (event) => {
         pending,
         new Promise((resolve) => setTimeout(resolve, 5000)),
       ]);
-    if (library?.stateFile && library.device.updatedAt)
-      await library.flush().catch(() => {});
+    await shelf?.flush().catch(() => {});
     speech?.close();
     library?.close();
     globalShortcut.unregisterAll();

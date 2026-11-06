@@ -47,6 +47,7 @@ src/                  React 界面
 desktop/              Electron 主进程
   main.cjs            入口
   library.cjs         书库读写与同步合并
+  shelf.cjs           多文件夹管理、普通目录扫描及路由
   formats.cjs         格式转换
   speech.cjs          朗读调度（系统语音、Edge、本地模型）
   edge-client.cjs     Edge 在线语音客户端
@@ -65,6 +66,7 @@ design/               设计稿和图标
 | 命令                     | 测什么                                                                 |
 | ------------------------ | ---------------------------------------------------------------------- |
 | `npm test`               | 单元测试和协议测试                                                     |
+| `npm run test:sources` | 多文件夹合并、真实 CBZ 翻页、来源筛选、导入目标及重启恢复 |
 | `npm run test:desktop`   | 驱动真实的 Electron 界面跑一遍接力流程                                 |
 | `npm run test:mac`       | 在 Mac 上验收打包好的应用（Dock、菜单栏、字幕、系统语音、同步）        |
 | `npm run test:providers` | 在同一台机器上模拟不同云盘目录，不能代替两台电脑之间的真实同步         |
@@ -74,6 +76,12 @@ design/               设计稿和图标
 `scripts/` 里还有双机同步、真实云盘和安装升级的测试脚本（`test-two-host.cjs`、`test-cloud-*.cjs`、`test-update-install.cjs`），需要自己准备机器和配置。这些配置里有地址和私人路径，别提交到仓库。
 
 ## 书库格式
+
+0.6.0 的 `config.json` 保存本机 `sources` 列表和 `importSourceId`；`root` 仍是唯一的 Apple Books 同步目录，原 0.5.0 配置首次启动会自动迁移为一个来源，保留设备 ID、进度和缓存。每个来源使用独立的 Library 状态，额外来源的界面 ID 带来源前缀，避免同名或相同书籍 ID 的跨目录覆盖。Apple Books 同步器始终只接收当前 `root` 对应的 Library。
+
+普通目录首次添加生成 `.booksplus-folder.json`（version 1 + libraryId），递归扫描支持的文件，仅列目录与读取属性。不会为了浏览书架读取整本书，也不会搬走原文件。书籍 ID 来自相对路径的 SHA-256；移动或重命名会生成新 ID。跳过隐藏目录、符号链接及内部保留目录（content、catalog、reader-state、records、covers、notes、unvalidated-books、node_modules），避免重复索引和链接越界。普通目录与已有的 catalog/library.json 目录可并列添加。
+
+原书与 `reader-state/` 留在各自目录；移除来源只改本机配置。云盘目录需把 `.booksplus-folder.json` 和 `reader-state/` 一起同步，另一台设备等待同步后再添加。目录暂时离线会报告原因并保留会话中的书目缓存，定时写入不会重新创建已掉线的根目录。普通目录需要写入权限。用户主动导入的新书仍采用下面的 content + catalog/extra 协议。
 
 书库就是一个普通文件夹，Books+ 只靠云盘客户端在电脑之间搬运文件。目录结构如下：
 

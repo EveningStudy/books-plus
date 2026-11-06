@@ -85,6 +85,8 @@ export type BookState = {
   };
 };
 export type BookItem = {
+  sourceId?: string;
+  sourceName?: string;
   id: string;
   title: string;
   author: string;
@@ -112,6 +114,8 @@ export type BookItem = {
   coverKey: string;
 };
 export type LibraryData = {
+  sources?: LibrarySource[];
+  importSourceId?: string;
   root: string;
   books: BookItem[];
   trash?: BookItem[];
@@ -124,6 +128,15 @@ export type LibraryData = {
     coverage: string;
     days: { date: string; reading_minutes: number }[];
   } | null;
+};
+export type LibrarySource = {
+  id: string;
+  root: string;
+  name: string;
+  kind: "folder" | "library";
+  appleBooks: boolean;
+  count: number;
+  error?: string;
 };
 export type Voice = {
   id: string;
@@ -256,7 +269,11 @@ export interface ReaderAPI {
   onSettings(fn: (tab: string) => void): () => void;
   load(): Promise<LibraryData>;
   choose(): Promise<LibraryData | null>;
-  importBooks(): Promise<{
+  addSource(): Promise<LibraryData | null>;
+  removeSource(id: string): Promise<LibraryData>;
+  setBridgeSource(id: string): Promise<LibraryData>;
+  setImportSource(id: string): Promise<LibraryData>;
+  importBooks(sourceId?: string): Promise<{
     data: LibraryData;
     imported: string[];
     failed: { name: string; error: string }[];

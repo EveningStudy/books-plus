@@ -26,6 +26,7 @@ jobs:
       - run: npm run build
       - run: npm run test:desktop
       - run: npm run test:i18n
+      - run: npm run test:sources
       - if: runner.os == 'macOS'
         run: npm run package:mac:dmg
       - if: runner.os == 'macOS'
@@ -49,4 +50,7 @@ jobs:
         with:
           name: acceptance-evidence-${{ runner.os }}
           include-hidden-files: true
-          path: .qa/handoff-ui-*/
+          path: |
+            .qa/handoff-ui-*/
+            .qa/sources-ui-*/
+            .qa/i18n-ui-*/

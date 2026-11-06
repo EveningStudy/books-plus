@@ -80,7 +80,7 @@ While it reads, the subtitles can pop out of the reader into a small transparent
 
 ### ☁️ Your library is just a folder
 
-No account, no server. Any folder in iCloud Drive, OneDrive or Google Drive can be your library. Point two computers at the same one and your books and progress line up.
+No account, no server. Add folders from iCloud Drive, OneDrive, Google Drive or local storage to one shelf, including comics. Plain folders are scanned in place. Only the one designated folder participates in Apple Books sync.
 
 </td>
 <td width="50%" valign="top">
@@ -141,7 +141,7 @@ PDF, TXT, Markdown and comics open directly. Install Calibre and MOBI, AZW3 and 
 ## Getting started
 
 1. Grab an installer from [Releases](https://github.com/EveningStudy/books-plus/releases): `BooksPlus-Setup-x.y.z-x64.exe` for Windows, or the `.dmg` for Apple Silicon Macs.
-2. Open Books+ and go to **设置 → 书库** (Settings → Library). Pick a folder. If you want to sync between computers, pick one inside your cloud drive.
+2. Open **Settings → Library** and add local or cloud folders. You can combine multiple folders on one shelf and filter by source. Choose just one folder for Apple Books sync.
 3. Click **加入图书** (Add books) in the bottom-right corner, choose a few books, and click a cover to start reading.
 
 The [user guide](docs/GUIDE.en.md) covers the details: sync setup, read-aloud, and fixes for common problems.

@@ -277,23 +277,26 @@ export default function App() {
     },
     [applyData, showError],
   );
-  const importBooks = useCallback(async () => {
-    try {
-      const result = await window.reader?.importBooks();
-      if (result) {
-        applyData(result.data);
-        setMessage(
-          t("已加入 {0} 本图书", [result.imported.length]) +
-            (result.failed.length
-              ? "；" +
-                result.failed.map((f) => `${f.name}：${f.error}`).join("；")
-              : ""),
-        );
+  const importBooks = useCallback(
+    async (sourceId?: string) => {
+      try {
+        const result = await window.reader?.importBooks(sourceId);
+        if (result) {
+          applyData(result.data);
+          setMessage(
+            t("已加入 {0} 本图书", [result.imported.length]) +
+              (result.failed.length
+                ? "；" +
+                  result.failed.map((f) => `${f.name}：${f.error}`).join("；")
+                : ""),
+          );
+        }
+      } catch (e) {
+        showError(e instanceof Error ? e.message : String(e));
       }
-    } catch (e) {
-      showError(e instanceof Error ? e.message : String(e));
-    }
-  }, [applyData, showError]);
+    },
+    [applyData, showError],
+  );
   const openSettings = useCallback((tab: string) => setSettingsTab(tab), []);
   const deleteBook = useCallback(
     async (id: string, deleted: boolean) => {
@@ -399,7 +402,9 @@ export default function App() {
   return (
     <>
       {!data || settings.mac?.mode === "sync" ? (
-        <div className="welcome-language"><LanguageSwitcher /></div>
+        <div className="welcome-language">
+          <LanguageSwitcher />
+        </div>
       ) : null}
       <UpdateNotice onOpen={() => setSettingsTab("updates")} />
       {settings.mac?.mode === "sync" ? (
@@ -487,6 +492,8 @@ export default function App() {
         <Settings
           initialTab={settingsTab}
           settings={settings}
+          data={data}
+          onData={applyData}
           root={data?.root || ""}
           voices={voices}
           onChange={changeSettings}

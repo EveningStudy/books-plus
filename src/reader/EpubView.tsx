@@ -80,7 +80,10 @@ export const EpubView = forwardRef<ReaderHandle, ReaderProps>(
         const book = bookRef.current;
         if (!book) return;
         userNavigation.current = interacted.current = true;
-        if (locationsReady.current)
+        if (
+          locationsReady.current &&
+          book.packaging.metadata.layout !== "pre-paginated"
+        )
           await renditionRef.current?.display(
             book.locations.cfiFromPercentage(progress),
           );
@@ -88,7 +91,12 @@ export const EpubView = forwardRef<ReaderHandle, ReaderProps>(
           const count = (book.spine as unknown as { spineItems: unknown[] })
             .spineItems.length;
           await renditionRef.current?.display(
-            Math.min(count - 1, Math.floor(progress * count)),
+            Math.min(
+              count - 1,
+              book.packaging.metadata.layout === "pre-paginated"
+                ? Math.round(progress * (count - 1))
+                : Math.floor(progress * count),
+            ),
           );
         }
       },
@@ -206,6 +214,9 @@ export const EpubView = forwardRef<ReaderHandle, ReaderProps>(
         const buffer = props.bytes.slice().buffer as ArrayBuffer;
         await book.open(buffer, "binary");
         if (disposed || !container.current) return;
+        const fixed = book.packaging.metadata.layout === "pre-paginated";
+        const pageCount = (book.spine as unknown as { spineItems: unknown[] })
+          .spineItems.length;
         book.spine.hooks.content.register((doc: Document) => {
           // Keep element positions intact for imported CFIs while making scripts inert.
           doc
@@ -302,16 +313,22 @@ export const EpubView = forwardRef<ReaderHandle, ReaderProps>(
         const report = (location: Location) => {
           locationRef.current = location;
           if (initialDisplay || disposed) return;
-          const fraction = locationsReady.current
-            ? book.locations.percentageFromCfi(location.start.cfi)
-            : latest.current.initial.progress;
+          const fraction = fixed
+            ? location.atEnd
+              ? 1
+              : location.start.index / Math.max(1, pageCount - 1)
+            : locationsReady.current
+              ? book.locations.percentageFromCfi(location.start.cfi)
+              : latest.current.initial.progress;
           const persist = userNavigation.current;
           userNavigation.current = false;
           latest.current.onLocation(
             {
               cfi: location.start.cfi,
               progress: Math.max(0, Math.min(1, fraction || 0)),
-              label: `${location.start.displayed.page} / ${location.start.displayed.total} · 本章${locationsReady.current ? "" : "（正在索引）"}`,
+              label: fixed
+                ? `${location.start.index + 1} / ${pageCount} 页`
+                : `${location.start.displayed.page} / ${location.start.displayed.total} · 本章${locationsReady.current ? "" : "（正在索引）"}`,
             },
             persist,
           );
@@ -329,16 +346,27 @@ export const EpubView = forwardRef<ReaderHandle, ReaderProps>(
               "原阅读位置与此 EPUB 不匹配，正在按导出进度定位",
             );
           }
-        } else await rendition.display();
+        } else if (fixed)
+          await rendition.display(
+            Math.min(
+              pageCount - 1,
+              Math.round(
+                latest.current.initial.progress * Math.max(0, pageCount - 1),
+              ),
+            ),
+          );
+        else await rendition.display();
         if (disposed) return;
         initialDisplay = false;
         // A restored CFI takes precedence over approximate percentage import.
-        if (exact || latest.current.initial.progress === 0) {
+        if (fixed || exact || latest.current.initial.progress === 0) {
           const current = rendition.location;
           if (current?.start) report(current);
         }
         latest.current.onReady();
         setRendered(true);
+        // Image-only books have no text locations. Their spine is the page index.
+        if (fixed) return;
         (book.locations as unknown as { pause: number }).pause = 5;
         await book.locations.generate(150);
         if (disposed) return;

@@ -22,7 +22,15 @@ export function MacSync({
       .catch((e) => onError(e.message));
     window.reader
       ?.load()
-      .then((data) => setBooks(data.books))
+      .then((data) =>
+        setBooks(
+          data.books.filter(
+            (book) =>
+              !book.sourceId ||
+              data.sources?.find((s) => s.appleBooks)?.id === book.sourceId,
+          ),
+        ),
+      )
       .catch(() => {});
     return window.reader?.onMacStatus(setStatus);
   }, []);

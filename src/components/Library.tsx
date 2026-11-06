@@ -263,7 +263,7 @@ export function Library({
   onOpen: (b: BookItem) => void;
   onRefresh: () => void;
   onChoose: () => void;
-  onImport: () => void;
+  onImport: (sourceId?: string) => void;
   onSettings: () => void;
   onStatus: (id: string, status: BookItem["state"]["status"]) => void;
   onStorage: (id: string, action: "offline" | "release") => void;
@@ -281,6 +281,10 @@ export function Library({
   const deferredQuery = useDeferredValue(query);
   const [view, setView] = useState(data.settings.view || "grid");
   const [sort, setSort] = useState(data.settings.sort || "recent");
+  const [sourceFilter, setSourceFilter] = useState("");
+  const selectedSource = data.sources?.some((s) => s.id === sourceFilter)
+    ? sourceFilter
+    : "";
   const collections = useMemo(
     () =>
       [...new Set(data.books.flatMap((b) => b.collections))].filter(
@@ -302,6 +306,7 @@ export function Library({
     const q = deferredQuery.toLocaleLowerCase().trim();
     return (tab === "trash" ? data.trash || [] : data.books)
       .filter((b) => {
+        if (selectedSource && b.sourceId !== selectedSource) return false;
         if (q && !`${b.title} ${b.author}`.toLocaleLowerCase().includes(q))
           return false;
         if (tab === "recent")
@@ -325,7 +330,15 @@ export function Library({
                 (a.state.reading?.progress ?? a.appleProgress)
               : (b.lastOpened || "").localeCompare(a.lastOpened || ""),
       );
-  }, [data.books, data.trash, tab, deferredQuery, sort, locale]);
+  }, [
+    data.books,
+    data.trash,
+    tab,
+    deferredQuery,
+    sort,
+    locale,
+    selectedSource,
+  ]);
   const title = tab.startsWith("collection:")
     ? tab.slice(11)
     : nav.find((n) => n[0] === tab)?.[1] || t("全部图书");
@@ -414,7 +427,23 @@ export function Library({
           </label>
         </header>
         <div className="shelf-toolbar">
-          <span>{tab === "recent" ? t("接着上次的地方读下去") : ""}</span>
+          <div className="source-filter">
+            {data.sources?.length ? (
+              <select
+                aria-label={t("书库来源")}
+                value={selectedSource}
+                onChange={(e) => setSourceFilter(e.target.value)}
+              >
+                <option value="">{t("所有文件夹")}</option>
+                {data.sources.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            ) : null}
+            {tab === "recent" ? <span>{t("接着上次的地方读下去")}</span> : null}
+          </div>
           <div>
             <ArrowDownWideNarrow size={15} />
             <select
@@ -484,6 +513,7 @@ export function Library({
               onClick={() => {
                 setTab("all");
                 setQuery("");
+                setSourceFilter("");
               }}
             >
               {t("查看全部图书")}
@@ -496,7 +526,10 @@ export function Library({
               data.books.filter((b) => !b.valid).length,
             ])}
           </span>
-          <button onClick={onImport} disabled={busy}>
+          <button
+            onClick={() => onImport(selectedSource || undefined)}
+            disabled={busy}
+          >
             <Plus size={14} />
             {t("加入图书")}
           </button>

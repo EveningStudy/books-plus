@@ -80,7 +80,7 @@ Books+ 是一个仿照 Apple Books 手感的桌面阅读器。在 Mac 上，它�
 
 ### ☁️ 书库就是一个文件夹
 
-不用注册账号，也没有服务器。iCloud Drive、OneDrive、Google Drive 里的任意文件夹都能当书库，两台电脑选同一个，书和进度就对上了。
+不用注册账号，也没有服务器。可以同时添加 iCloud Drive、OneDrive、Google Drive 或本地文件夹，电子书和漫画合并在一个书架里。普通文件夹直接扫描原文件；只有指定的一个文件夹参与 Apple Books 同步。
 
 </td>
 <td width="50%" valign="top">
@@ -141,7 +141,7 @@ PDF、TXT、Markdown、漫画都能直接打开。装上 Calibre 之后，MOBI�
 ## 快速开始
 
 1. 到 [Releases](https://github.com/EveningStudy/books-plus/releases) 下载安装包。Windows 选 `BooksPlus-Setup-x.y.z-x64.exe`，Apple Silicon 的 Mac 选 `.dmg`。
-2. 打开 Books+，进入 **设置 → 书库**，选一个文件夹。想在两台电脑之间同步，就选云盘里的文件夹。
+2. 打开 Books+，进入 **设置 → 书库**，添加本地或云盘文件夹。可以添加多个，在同一个书架查看，并按来源筛选。Apple Books 只与其中指定的一个文件夹同步。
 3. 点右下角的 **加入图书**，挑几本书，点封面开始读。
 
 详细步骤、同步设置和常见问题，都写在 [使用说明](docs/GUIDE.md) 里。

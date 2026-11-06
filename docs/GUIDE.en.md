@@ -49,11 +49,17 @@ You don't need Node.js, Python or anything else installed. The Mac version needs
 
 A library is just a folder. Books+ keeps your books and reading history inside it.
 
-1. Click **设置** (Settings) in the bottom-left corner and open **书库** (Library).
-2. Click **更改…** (Change…) and choose a folder. An empty folder becomes a new library.
-3. If you only read on one computer, any local folder will do. To sync between computers, pick a folder inside your cloud drive. See [Syncing between two computers](#syncing-between-two-computers).
+1. Open **Settings → Library** and click **Add folder…**.
+2. Add multiple local or cloud folders. Plain folders are scanned for supported formats, including subfolders, and originals stay in place. Existing Books+ libraries can also be added.
+3. The shelf combines all sources. Use **Library source → All folders** to view everything or choose one source. CBZ / CBT comics can live in their own folder.
+4. Choose just one **Apple Books sync folder**. Books in other folders are not imported into Apple Books. Mac sync mode and permissions remain under **Mac Sync**.
+5. **Default destination for added books** controls where imported books are copied. When the shelf is filtered to a folder, **Add books** uses that folder instead.
 
-![Library settings](assets/screenshots/settings-library.png)
+Removing a folder only removes it from this device’s shelf. Originals, progress and annotations are kept and return when you add it again. Choose a different Apple Books sync folder before removing the current one.
+
+Plain folders need write access for `.booksplus-folder.json` and `reader-state/`. On another computer, add the same folder after these files have synced. Renaming or moving an original changes its path identity, so keep its relative path stable.
+
+![Multiple library folders](assets/screenshots/library-folders.png)
 
 ### Add books
 
