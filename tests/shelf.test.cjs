@@ -14,7 +14,9 @@ const cloud = {
     })),
 };
 async function fixture(t) {
-  const base = await fs.mkdtemp(path.join(os.tmpdir(), "booksplus-shelf-"));
+  const base = await fs.realpath(
+    await fs.mkdtemp(path.join(os.tmpdir(), "booksplus-shelf-")),
+  );
   t.after(() => fs.rm(base, { recursive: true, force: true }));
   const root = path.join(base, "Apple Library"),
     folder = path.join(base, "Comics");

@@ -177,11 +177,11 @@ async function chooseLibrary() {
   await appleSync?.idle();
   try {
     const root = await fs.realpath(result.filePaths[0]);
-    const existing = shelf.list().find((source) => source.root === root);
+    const existing = await shelf.sourceAt(root);
     if (!existing) await shelf.add(root);
     else await shelf.prepare(existing.id);
     return await shelf.setBridge(
-      existing?.id || shelf.list().find((source) => source.root === root).id,
+      existing?.id || (await shelf.sourceAt(root)).id,
     );
   } finally {
     appleSync?.start();

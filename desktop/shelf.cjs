@@ -234,6 +234,17 @@ class Shelf {
   list() {
     return this.primary.config.sources;
   }
+  async sourceAt(root) {
+    const target = normal(await fs.realpath(root));
+    for (const source of this.list()) {
+      if (
+        normal(await fs.realpath(source.root).catch(() => source.root)) ===
+        target
+      )
+        return source;
+    }
+    return undefined;
+  }
   async ensureUnique(root, excluding) {
     const real = normal(await fs.realpath(root));
     for (const source of this.list()) {
