@@ -152,6 +152,31 @@ function pdf() {
       "restoring/indexing must not create progress",
     );
     results.push("EPUB import/render and restore without a progress echo");
+    // Issue #1: leaving the bold theme must restore normal text weight at once.
+    const bodyWeight = () =>
+      page.evaluate(() => {
+        const doc = [...document.querySelectorAll(".epub-container iframe")]
+          .map((f) => f.contentDocument)
+          .find((d) => d?.body);
+        return doc.defaultView.getComputedStyle(doc.body).fontWeight;
+      });
+    await page.getByRole("button", { name: "主题与设置", exact: true }).click();
+    const theme = (name) =>
+      page.getByRole("button", { name: name + "主题", exact: true }).click();
+    await theme("粗体");
+    await page.waitForFunction(() =>
+      [...document.querySelectorAll(".epub-container iframe")].some(
+        (f) =>
+          f.contentDocument?.body &&
+          getComputedStyle(f.contentDocument.body).fontWeight === "600",
+      ),
+    );
+    await theme("安静");
+    await page.waitForTimeout(400);
+    assert.equal(await bodyWeight(), "400", "bold theme weight must reset");
+    await theme("原始");
+    await page.locator(".popover-dismiss").click();
+    results.push("switching away from the bold theme restores normal weight");
     await remote.load();
     await remote.save(id, {
       reading: { cfi: "epubcfi(/6/4[c2]!/4/2/1:0)", progress: 0.4 },

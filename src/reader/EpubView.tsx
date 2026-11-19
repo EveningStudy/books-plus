@@ -179,6 +179,18 @@ export const EpubView = forwardRef<ReaderHandle, ReaderProps>(
       if (!rendition) return;
       const s = latest.current.settings;
       const t = themes[s.theme];
+      // epub.js appends theme rules on every update instead of replacing them,
+      // so stale rules (e.g. the bold theme's font-weight) would keep winning.
+      for (const contents of rendition.getContents() as unknown as {
+        document?: Document;
+      }[]) {
+        const sheet = (
+          contents.document?.getElementById(
+            "epubjs-inserted-css-default",
+          ) as HTMLStyleElement | null
+        )?.sheet;
+        while (sheet?.cssRules.length) sheet.deleteRule(0);
+      }
       rendition.themes.default({
         body: {
           color: `${t.fg} !important`,
