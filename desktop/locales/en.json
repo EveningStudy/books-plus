@@ -632,5 +632,7 @@
   "所有文件夹": "All folders",
   "书库文件夹不可用": "The library folder is unavailable",
   "书库标识已改变，请重新连接文件夹": "The library identity has changed. Reconnect the folder.",
-  "正在更新文件夹，请稍后再打开图书": "Folders are being updated. Open the book again shortly."
+  "正在更新文件夹，请稍后再打开图书": "Folders are being updated. Open the book again shortly.",
+  "书目文件 {0}: {1}": "Catalog file {0}: {1}",
+  "本地缓存 {0} 已损坏并重置: {1}": "Local cache {0} was damaged and reset: {1}"
 }

@@ -14,14 +14,30 @@ async function json(file, fallback) {
     return JSON.parse(await fs.readFile(file, "utf8"));
   } catch (error) {
     if (error.code === "ENOENT" && fallback !== undefined) return fallback;
+    if (error instanceof SyntaxError)
+      throw new SyntaxError(`${path.basename(file)}: ${error.message}`, {
+        cause: error,
+      });
     throw error;
   }
 }
 async function atomicJson(file, value) {
-  await fs.mkdir(path.dirname(file), { recursive: true });
-  const tmp = `${file}.${crypto.randomUUID()}.tmp`;
+  const dir = path.dirname(file);
+  await fs.mkdir(dir, { recursive: true });
+  const tmp = path.join(
+    dir,
+    `.${path.basename(file)}.${crypto.randomUUID()}.tmp`,
+  );
   try {
-    await fs.writeFile(tmp, JSON.stringify(value, null, 2), "utf8");
+    const handle = await fs.open(tmp, "wx");
+    try {
+      await handle.writeFile(JSON.stringify(value, null, 2), "utf8");
+      await handle.sync().catch((e) => {
+        if (!["EINVAL", "ENOSYS", "ENOTSUP", "EROFS"].includes(e.code)) throw e;
+      });
+    } finally {
+      await handle.close();
+    }
     for (let attempt = 0; ; attempt++) {
       try {
         await fs.rename(tmp, file);
@@ -104,10 +120,44 @@ async function readDevices(root) {
     try {
       devices.push(await json(path.join(folder, name)));
     } catch (e) {
-      errors.push(`同步快照 ${name}: ${e.message}`);
+      errors.push(`同步快照 ${name}: ${e.cause?.message || e.message}`);
     }
   }
   return { devices, errors };
+}
+async function readExtraCatalog(root) {
+  const books = [],
+    errors = [],
+    corruptIds = new Set();
+  const extraDir = path.join(root, "catalog/extra");
+  const names = await fs.readdir(extraDir).catch((e) => {
+    if (e.code === "ENOENT") return [];
+    throw e;
+  });
+  for (const name of names
+    .filter((n) => /^[a-zA-Z0-9_-]+\.json$/.test(n))
+    .sort()) {
+    try {
+      const record = await json(path.join(extraDir, name));
+      if (record?.version === 2 && record.book) books.push(record.book);
+    } catch (e) {
+      if (e instanceof SyntaxError) corruptIds.add(name.slice(0, -5));
+      errors.push(`书目文件 ${name}: ${e.cause?.message || e.message}`);
+    }
+  }
+  return { books, errors, corruptIds };
+}
+async function recoverLocalJson(file, fallback, warnings) {
+  try {
+    return await json(file, fallback);
+  } catch (e) {
+    if (!(e instanceof SyntaxError)) throw e;
+    await fs.rename(file, `${file}.corrupt-${Date.now()}`).catch(() => {});
+    warnings?.push(
+      `本地缓存 ${path.basename(file)} 已损坏并重置: ${e.cause?.message || e.message}`,
+    );
+    return fallback;
+  }
 }
 
 class Library {
@@ -132,11 +182,14 @@ class Library {
             "Library/Mobile Documents/com~apple~CloudDocs/Books Export",
           )
         : path.join(require("node:os").homedir(), "iCloudDrive/Books Export");
-    this.device = await json(path.join(this.userDir, "state-v1.json"), {
-      version: 1,
-      deviceId: this.config.deviceId,
-      books: {},
-    });
+    this.device = await recoverLocalJson(
+      path.join(this.userDir, "state-v1.json"),
+      {
+        version: 1,
+        deviceId: this.config.deviceId,
+        books: {},
+      },
+    );
     this.legacyDevice = this.device;
     this.legacyRoot = this.config.root;
     await atomicJson(path.join(this.userDir, "config.json"), this.config);
@@ -168,18 +221,7 @@ class Library {
     return this.load();
   }
   async catalog(root) {
-    const extra = [];
-    const extraDir = path.join(root, "catalog/extra");
-    for (const name of (
-      await fs.readdir(extraDir).catch((e) => {
-        if (e.code === "ENOENT") return [];
-        throw e;
-      })
-    ).sort()) {
-      if (!/^[a-zA-Z0-9_-]+\.json$/.test(name)) continue;
-      const record = await json(path.join(extraDir, name));
-      if (record.version === 2 && record.book) extra.push(record.book);
-    }
+    const { books: extra, errors, corruptIds } = await readExtraCatalog(root);
     const mapBook = (b) => ({
       asset_id: b.id,
       title: b.title,
@@ -206,6 +248,8 @@ class Library {
         );
       return {
         libraryId: catalog.libraryId,
+        errors,
+        corruptIds,
         raw: [
           ...new Map(
             [...catalog.books, ...extra].map((b) => [b.id, b]),
@@ -223,7 +267,7 @@ class Library {
       if (book.deleted) combined.delete(book.id);
       else combined.set(book.id, mapBook(book));
     }
-    return { raw: [...combined.values()] };
+    return { raw: [...combined.values()], errors, corruptIds };
   }
   async bind(libraryId) {
     const root = this.config.root;
@@ -235,23 +279,36 @@ class Library {
       .update(identity)
       .digest("hex")
       .slice(0, 32);
-    if (this.libraryKey === key) return;
+    if (this.libraryKey === key) return { warnings: [], stateRecovered: false };
     this.libraryKey = key;
     this.libraryId = libraryId;
     this.localDir = path.join(this.userDir, "libraries", key);
     this.formats = new Formats(path.join(this.localDir, "converted"));
     this.stateFile = path.join(this.localDir, "state-v1.json");
     this.mergedFile = path.join(this.localDir, "observed-v1.json");
-    const observed = await json(this.mergedFile, { version: 1, books: {} });
+    const warnings = [];
+    const observed = await recoverLocalJson(
+      this.mergedFile,
+      { version: 1, books: {} },
+      warnings,
+    );
     this.merged = mergeDevices([observed]);
     this.observedSerialized = stable(this.merged);
-    this.device = await json(
+    const beforeState = warnings.length;
+    this.device = await recoverLocalJson(
       this.stateFile,
       root === this.legacyRoot
         ? this.legacyDevice
         : { version: 1, deviceId: this.config.deviceId, books: {} },
+      warnings,
     );
-    this.downloads = await json(path.join(this.localDir, "downloads.json"), {});
+    const stateRecovered = warnings.length > beforeState;
+    this.downloads = await recoverLocalJson(
+      path.join(this.localDir, "downloads.json"),
+      {},
+      warnings,
+    );
+    return { warnings, stateRecovered };
   }
   load() {
     const result = this.queue.then(() => this.loadNow());
@@ -266,8 +323,9 @@ class Library {
       json(path.join(root, "records/reading-positions.json"), []),
       json(path.join(root, "records/reading-time-history.json"), null),
     ]);
-    const { raw, libraryId } = catalog;
-    await this.bind(libraryId);
+    const { raw, libraryId, errors: catalogErrors = [] } = catalog;
+    const { warnings: bindWarnings, stateRecovered } =
+      await this.bind(libraryId);
     if (!Array.isArray(raw)) throw Error("library.json 格式不正确");
     this.items = new Map(
       raw.filter((b) => b.asset_id).map((b) => [b.asset_id, b]),
@@ -298,7 +356,7 @@ class Library {
       })),
     );
     this.storage = new Map(statuses.map((s) => [s.id, s.status]));
-    let syncError = null;
+    const warnings = [...catalogErrors, ...bindWarnings];
     try {
       const { devices, errors } = await readDevices(root);
       // Recover our own cloud snapshot after profile loss or an interrupted local backup.
@@ -314,6 +372,8 @@ class Library {
         .filter(Boolean)
         .sort()
         .at(-1);
+      if (stateRecovered && own.length)
+        await atomicJson(this.stateFile, this.device);
       // File providers can briefly omit or redeliver an older device snapshot.
       // Retain fields already observed, without publishing remote writes as ours.
       this.merged = mergeDevices([
@@ -321,14 +381,15 @@ class Library {
         ...devices,
         this.device,
       ]);
-      if (errors.length) syncError = errors.join("；");
+      if (errors.length) warnings.push(...errors);
     } catch (e) {
-      syncError = e.message;
+      warnings.push(e.message);
       this.merged = mergeDevices([
         { version: 1, books: this.merged },
         this.device,
       ]);
     }
+    const syncError = warnings.length ? warnings.join("；") : null;
     const serialized = stable(this.merged);
     if (serialized !== this.observedSerialized) {
       await atomicJson(this.mergedFile, { version: 1, books: this.merged });
@@ -778,7 +839,12 @@ class Library {
         "reader-state/v1/devices",
         `${this.config.deviceId}.json`,
       );
-      const previous = await json(file, null);
+      let previous = null;
+      try {
+        previous = await json(file, null);
+      } catch (e) {
+        if (!(e instanceof SyntaxError)) throw e;
+      }
       if (JSON.stringify(previous) !== JSON.stringify(this.device))
         await atomicJson(file, this.device);
       return { synced: true, at: this.device.updatedAt };
@@ -807,5 +873,6 @@ module.exports = {
   atomicJson,
   json,
   readDevices,
+  readExtraCatalog,
   newer,
 };

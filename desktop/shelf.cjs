@@ -1,7 +1,12 @@
 const fs = require("node:fs/promises");
 const path = require("node:path");
 const crypto = require("node:crypto");
-const { Library, atomicJson, json } = require("./library.cjs");
+const {
+  Library,
+  atomicJson,
+  json,
+  readExtraCatalog,
+} = require("./library.cjs");
 const { BUILTIN, CALIBRE } = require("./formats.cjs");
 
 const hash = (value) => crypto.createHash("sha256").update(value).digest("hex");
@@ -134,17 +139,9 @@ class SourceLibrary extends Library {
     };
     await walk(root);
     // Explicit imports and Apple exports publish sidecars, alongside loose files.
-    const extraDir = path.join(root, "catalog/extra");
-    const names = await fs.readdir(extraDir).catch((e) => {
-      if (e.code === "ENOENT") return [];
-      throw e;
-    });
-    for (const name of names
-      .filter((n) => /^[a-zA-Z0-9_-]+\.json$/.test(n))
-      .sort()) {
-      const record = await json(path.join(extraDir, name));
-      if (record.version !== 2 || !record.book || record.book.deleted) continue;
-      const b = record.book;
+    const { books: extra, errors, corruptIds } = await readExtraCatalog(root);
+    for (const b of extra) {
+      if (b.deleted) continue;
       entries.push({
         asset_id: b.id,
         title: b.title,
@@ -158,7 +155,7 @@ class SourceLibrary extends Library {
         appleBooks: b.appleBooks,
       });
     }
-    return { libraryId: identity.libraryId, raw: entries };
+    return { libraryId: identity.libraryId, raw: entries, errors, corruptIds };
   }
 }
 

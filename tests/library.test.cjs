@@ -223,3 +223,59 @@ test("declared revision survives delayed body delivery and corrupt snapshots do 
   assert.match(data.syncError, /broken/);
   await assert.rejects(library.read("b"), /ENOENT/);
 });
+
+test("corrupt extra catalog entries, local caches and own cloud snapshot recover cleanly", async (t) => {
+  const temp = await fs.mkdtemp(path.join(os.tmpdir(), "books-corrupt-"));
+  t.after(() => fs.rm(temp, { recursive: true, force: true }));
+  const root = path.join(temp, "cloud"),
+    user = path.join(temp, "user");
+  const library = await new Library(user).init();
+  await library.configure(root);
+  const input = path.join(temp, "valid.txt");
+  await fs.writeFile(input, "valid content");
+  const {
+    imported: [id],
+  } = await library.import([input]);
+  await library.save(id, { reading: { progress: 0.42 } });
+  await fs.writeFile(
+    path.join(root, "catalog/extra/BROKEN.json"),
+    '{\n  "version": 2\n}GARBAGE',
+  );
+  const restarted = await new Library(user).init();
+  let data = await restarted.load();
+  assert.equal(data.books.length, 1);
+  assert.match(data.syncError, /BROKEN\.json/);
+
+  await fs.writeFile(restarted.mergedFile, '{"version":1}TRAILING');
+  await fs.writeFile(restarted.stateFile, '{"version":1}TRAILING');
+  await fs.writeFile(
+    path.join(restarted.localDir, "downloads.json"),
+    "{}TRAILING",
+  );
+  const healed = await new Library(user).init();
+  data = await healed.load();
+  assert.equal(data.books.length, 1);
+  assert.equal(healed.device.books[id].reading.progress, 0.42);
+  assert.match(data.syncError, /observed-v1\.json/);
+  assert.match(data.syncError, /state-v1\.json/);
+  assert.match(data.syncError, /downloads\.json/);
+  const localFiles = await fs.readdir(healed.localDir);
+  assert.ok(localFiles.some((f) => f.startsWith("observed-v1.json.corrupt-")));
+  assert.ok(localFiles.some((f) => f.startsWith("state-v1.json.corrupt-")));
+  assert.ok(localFiles.some((f) => f.startsWith("downloads.json.corrupt-")));
+
+  const ownCloud = path.join(
+    root,
+    "reader-state/v1/devices",
+    healed.config.deviceId + ".json",
+  );
+  await fs.writeFile(ownCloud, '{"version":1}TRAILING');
+  assert.equal((await healed.flush()).synced, true);
+  assert.equal(
+    JSON.parse(await fs.readFile(ownCloud, "utf8")).books[id].reading.progress,
+    0.42,
+  );
+
+  await fs.writeFile(path.join(root, "catalog.json"), '{"version":2}TRAILING');
+  await assert.rejects(healed.load(), /catalog\.json/);
+});

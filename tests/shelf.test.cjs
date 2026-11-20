@@ -289,3 +289,25 @@ test("Apple sync sees only the selected folder and follows an explicit bridge ch
   await sync.cycle();
   assert.deepEqual(opens, [path.join(folder, "Independent.pdf")]);
 });
+
+test("corrupt extra sidecar in a plain folder does not block loose books or valid sidecars", async (t) => {
+  const { folder, shelf } = await fixture(t);
+  await fs.writeFile(path.join(folder, "Loose.txt"), "Loose book");
+  await fs.writeFile(path.join(folder, "Extra.txt"), "Extra book");
+  await atomicJson(path.join(folder, "catalog/extra/VALID.json"), {
+    version: 2,
+    book: {
+      id: "VALID",
+      title: "Valid Extra",
+      content: { path: "Extra.txt" },
+    },
+  });
+  await fs.writeFile(
+    path.join(folder, "catalog/extra/BAD.json"),
+    '{\n  "version": 2\n}CORRUPT',
+  );
+  const data = await shelf.add(folder);
+  assert.ok(data.books.some((b) => b.title === "Loose"));
+  assert.ok(data.books.some((b) => b.title === "Valid Extra"));
+  assert.match(data.syncError, /BAD\.json/);
+});

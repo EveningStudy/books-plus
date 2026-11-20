@@ -48,4 +48,13 @@ test("stored service messages translate in either direction including nested err
     tm("en", "A provider-specific message"),
     "A provider-specific message",
   );
+  const sidecarMsg = "书目文件 broken.json: Unexpected token";
+  const sidecarEn = "Catalog file broken.json: Unexpected token";
+  assert.equal(tm("en", sidecarMsg), sidecarEn);
+  assert.equal(tm("zh", sidecarEn), sidecarMsg);
+  const cacheMsg = "本地缓存 observed-v1.json 已损坏并重置: Unexpected token";
+  const cacheEn =
+    "Local cache observed-v1.json was damaged and reset: Unexpected token";
+  assert.equal(tm("en", cacheMsg), cacheEn);
+  assert.equal(tm("zh", cacheEn), cacheMsg);
 });

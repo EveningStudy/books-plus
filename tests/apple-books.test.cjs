@@ -711,3 +711,33 @@ test("an event arriving during a cycle requests another cycle", async (t) => {
   await first;
   assert.equal(scheduled, 1);
 });
+
+test("Apple sync rebuilds its own corrupt sidecar after verifying content and isolates others", async (t) => {
+  const f = await setup(t);
+  await f.sync.cycle();
+  const sidecarFile = path.join(f.root, "catalog/extra/APPLE1.json");
+  const original = await fs.readFile(sidecarFile, "utf8");
+  await fs.writeFile(sidecarFile, original + "CORRUPT");
+  await fs.writeFile(
+    path.join(f.root, "catalog/extra/OTHER.json"),
+    '{\n  "version": 2\n}CORRUPT',
+  );
+  await f.sync.cycle();
+  const repaired = await json(sidecarFile);
+  assert.equal(repaired.version, 2);
+  assert.equal(repaired.book.id, "APPLE1");
+  assert.equal(
+    repaired.book.appleBooks.publisherDeviceId,
+    f.sync.state.deviceId,
+  );
+  assert.ok(
+    !f.sync.status.issues.some((i) => /APPLE1\.json/.test(i.error || "")),
+  );
+  assert.ok(
+    f.sync.status.issues.some((i) => /OTHER\.json/.test(i.error || "")),
+  );
+  assert.equal(
+    await fs.readFile(path.join(f.root, "catalog/extra/OTHER.json"), "utf8"),
+    '{\n  "version": 2\n}CORRUPT',
+  );
+});

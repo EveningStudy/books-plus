@@ -32,9 +32,48 @@ const safeId = (value) =>
   /^[a-zA-Z0-9_-]{1,200}$/.test(value) &&
   !["__proto__", "constructor", "prototype"].includes(value);
 async function publishJson(file, value) {
-  const previous = await json(file, null);
+  let previous = null;
+  try {
+    previous = await json(file, null);
+  } catch (e) {
+    if (!(e instanceof SyntaxError)) throw e;
+  }
   if (previous && JSON.stringify(previous) === JSON.stringify(value)) return;
   await atomicJson(file, value);
+}
+function appleCollections(tables, assetId) {
+  const names = new Map(
+    array(tables.ZBKCOLLECTION)
+      .filter((c) => !c.ZDELETEDFLAG)
+      .map((c) => [c.Z_PK, c.ZTITLE]),
+  );
+  return array(tables.ZBKCOLLECTIONMEMBER)
+    .filter((m) => m.ZASSETID === assetId)
+    .map((m) => names.get(m.ZCOLLECTION))
+    .filter(Boolean);
+}
+function buildAppleSidecar(
+  id,
+  asset,
+  tables,
+  relative,
+  sha256,
+  epubIdentifier,
+  publisherDeviceId,
+) {
+  return {
+    id,
+    title: asset.ZTITLE || "未命名图书",
+    author: asset.ZAUTHOR || "未知作者",
+    addedAt: appleTime(asset.ZCREATIONDATE) || new Date().toISOString(),
+    collections: appleCollections(tables, asset.ZASSETID),
+    content: { path: relative, revision: sha256, sha256 },
+    appleBooks: {
+      assetId: asset.ZASSETID,
+      epubIdentifier,
+      publisherDeviceId,
+    },
+  };
 }
 function pointCFI(cfi) {
   if (
@@ -691,27 +730,15 @@ class AppleBooksSync {
         const sha256 = hash(full.bytes),
           relative = `content/${assetId}/${sha256}${source.ext}`;
         await writeContent(root, relative, full.bytes);
-        const names = new Map(
-          array(tables.ZBKCOLLECTION)
-            .filter((c) => !c.ZDELETEDFLAG)
-            .map((c) => [c.Z_PK, c.ZTITLE]),
+        const book = buildAppleSidecar(
+          assetId,
+          asset,
+          tables,
+          relative,
+          sha256,
+          source.identifier,
+          state.deviceId,
         );
-        const book = {
-          id: assetId,
-          title: asset.ZTITLE || "未命名图书",
-          author: asset.ZAUTHOR || "未知作者",
-          addedAt: appleTime(asset.ZCREATIONDATE) || new Date().toISOString(),
-          collections: array(tables.ZBKCOLLECTIONMEMBER)
-            .filter((m) => m.ZASSETID === assetId)
-            .map((m) => names.get(m.ZCOLLECTION))
-            .filter(Boolean),
-          content: { path: relative, revision: sha256, sha256 },
-          appleBooks: {
-            assetId,
-            epubIdentifier: source.identifier,
-            publisherDeviceId: state.deviceId,
-          },
-        };
         await atomicJson(path.join(root, "catalog/extra", assetId + ".json"), {
           version: 2,
           book,
@@ -754,14 +781,60 @@ class AppleBooksSync {
       try {
         devices.push(await json(path.join(folder, name)));
       } catch (e) {
-        this.status.issues.push({ error: `同步快照 ${name}: ${e.message}` });
+        this.status.issues.push({
+          error: `同步快照 ${name}: ${e.cause?.message || e.message}`,
+        });
       }
     }
     const remote = mergeDevices(devices);
+    const repairedIds = new Set();
     for (const [id, mapping] of Object.entries(state.mappings)) {
       const asset = assets.get(mapping.assetId),
-        source = sourceInfo.get(mapping.assetId),
-        book = cloudBooks.get(id);
+        source = sourceInfo.get(mapping.assetId);
+      let book = cloudBooks.get(id);
+      if (
+        !book &&
+        !deletedIds.has(id) &&
+        mapping.published &&
+        catalog.corruptIds?.has(id) &&
+        asset &&
+        source
+      ) {
+        try {
+          const relative = `content/${id}/${mapping.revision}${source.ext}`;
+          const filePath = await safeCloudPath(root, relative);
+          if (hash(await fs.readFile(filePath)) !== mapping.revision)
+            throw Error("不可变正文校验失败");
+          const rebuilt = buildAppleSidecar(
+            id,
+            asset,
+            tables,
+            relative,
+            mapping.revision,
+            source.identifier,
+            state.deviceId,
+          );
+          await atomicJson(path.join(root, "catalog/extra", id + ".json"), {
+            version: 2,
+            book: rebuilt,
+          });
+          book = {
+            asset_id: id,
+            file: relative,
+            revision: mapping.revision,
+            sha256: mapping.revision,
+            title: rebuilt.title,
+          };
+          cloudBooks.set(id, book);
+          repairedIds.add(id);
+        } catch (e) {
+          this.status.issues.push({
+            id,
+            title: asset.ZTITLE,
+            error: e.message,
+          });
+        }
+      }
       if (!asset || !source || !book) continue;
       try {
         if (mapping.published) {
@@ -771,15 +844,7 @@ class AppleBooksSync {
             throw Error("书目发布者已改变，已暂停此映射；请重新核对书目所有权");
           sidecar.book.title = asset.ZTITLE || "未命名图书";
           sidecar.book.author = asset.ZAUTHOR || "未知作者";
-          const names = new Map(
-            array(tables.ZBKCOLLECTION)
-              .filter((c) => !c.ZDELETEDFLAG)
-              .map((c) => [c.Z_PK, c.ZTITLE]),
-          );
-          sidecar.book.collections = array(tables.ZBKCOLLECTIONMEMBER)
-            .filter((m) => m.ZASSETID === mapping.assetId)
-            .map((m) => names.get(m.ZCOLLECTION))
-            .filter(Boolean);
+          sidecar.book.collections = appleCollections(tables, mapping.assetId);
           await publishJson(file, sidecar);
         }
         const revision = book.revision || book.sha256;
@@ -968,6 +1033,12 @@ class AppleBooksSync {
         this.status.issues.push({ id, title: book.title, error: e.message });
       }
     }
+    for (const error of catalog.errors || []) {
+      if (
+        ![...repairedIds].some((id) => error.startsWith(`书目文件 ${id}.json:`))
+      )
+        this.status.issues.push({ error });
+    }
     if (
       !state.device.updatedAt ||
       previousBooks !== JSON.stringify(state.device.books)
@@ -1047,14 +1118,7 @@ class AppleBooksSync {
     } else if (action === "continue") {
       const mapping = this.state.mappings[id];
       if (!mapping) throw Error("尚未映射到 Apple Books");
-      const remote = [];
-      const folder = path.join(
-        this.library.config.root,
-        "reader-state/v1/devices",
-      );
-      for (const n of await fs.readdir(folder))
-        if (/^[a-zA-Z0-9_-]+\.json$/.test(n))
-          remote.push(await json(path.join(folder, n)));
+      const { devices: remote } = await readDevices(this.library.config.root);
       const reading = mergeDevices(remote)[id]?.reading;
       if (
         !reading ||
